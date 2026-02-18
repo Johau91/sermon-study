@@ -1,65 +1,230 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  BookOpen,
+  GraduationCap,
+  MessageCircle,
+  TrendingUp,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+
+interface Sermon {
+  id: number;
+  youtube_id: string;
+  title: string;
+  published_at: string | null;
+  tags: string | null;
+  created_at: string;
+}
+
+interface Stats {
+  totalSermons: number;
+  completedStudies: number;
+  quizScore: number;
+}
+
+export default function DashboardPage() {
+  const [sermons, setSermons] = useState<Sermon[]>([]);
+  const [stats, setStats] = useState<Stats>({
+    totalSermons: 0,
+    completedStudies: 0,
+    quizScore: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+
+        // Fetch sermons
+        const sermonsRes = await fetch("/api/sermons");
+        if (sermonsRes.ok) {
+          const sermonsData = await sermonsRes.json();
+          const sermonList = Array.isArray(sermonsData)
+            ? sermonsData
+            : sermonsData.sermons || [];
+          setSermons(sermonList);
+          setStats((prev) => ({
+            ...prev,
+            totalSermons: sermonList.length,
+          }));
+        }
+
+        // Fetch today's quiz status
+        const quizRes = await fetch("/api/quiz?today=true");
+        if (quizRes.ok) {
+          const quizData = await quizRes.json();
+          setStats((prev) => ({
+            ...prev,
+            completedStudies: quizData.completedStudies ?? prev.completedStudies,
+            quizScore: quizData.averageScore ?? prev.quizScore,
+          }));
+        }
+      } catch (err) {
+        setError("데이터를 불러오는 중 오류가 발생했습니다.");
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  const statCards = [
+    {
+      title: "전체 설교",
+      value: stats.totalSermons,
+      icon: BookOpen,
+      description: "등록된 설교 수",
+    },
+    {
+      title: "완료한 학습",
+      value: stats.completedStudies,
+      icon: GraduationCap,
+      description: "퀴즈 완료 횟수",
+    },
+    {
+      title: "퀴즈 점수",
+      value: `${stats.quizScore}%`,
+      icon: TrendingUp,
+      description: "평균 정답률",
+    },
+  ];
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8">
+      {/* Welcome Section */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">오늘의 학습</h1>
+        <p className="mt-2 text-muted-foreground">
+          말씀을 통해 매일 성장하세요. 설교를 듣고, 질문하고, 퀴즈로 확인하세요.
+        </p>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="flex flex-wrap gap-3">
+        <Button asChild>
+          <Link href="/sermons">
+            <BookOpen className="mr-2 size-4" />
+            설교 보기
+          </Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/chat">
+            <MessageCircle className="mr-2 size-4" />
+            AI에게 질문하기
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/study">
+            <GraduationCap className="mr-2 size-4" />
+            학습 시작
+          </Link>
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {statCards.map((stat) => (
+          <Card key={stat.title}>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2">
+                <stat.icon className="size-4" />
+                {stat.title}
+              </CardDescription>
+              <CardTitle className="text-2xl">{loading ? "-" : stat.value}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                {stat.description}
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Recent Sermons */}
+      <div>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">최근 설교</h2>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/sermons">
+              전체 보기 <ChevronRight className="ml-1 size-4" />
+            </Link>
+          </Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">불러오는 중...</span>
+          </div>
+        ) : error ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              {error}
+            </CardContent>
+          </Card>
+        ) : sermons.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              아직 등록된 설교가 없습니다. 설교를 추가해주세요.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {sermons.slice(0, 4).map((sermon) => {
+              const tags = sermon.tags
+                ? sermon.tags.split(",").map((t) => t.trim())
+                : [];
+              return (
+                <Link key={sermon.id} href={`/sermons/${sermon.id}`}>
+                  <Card className="transition-colors hover:bg-accent/50 cursor-pointer h-full">
+                    <CardHeader>
+                      <CardTitle className="text-base line-clamp-2">
+                        {sermon.title}
+                      </CardTitle>
+                      <CardDescription>
+                        {sermon.published_at
+                          ? new Date(sermon.published_at).toLocaleDateString(
+                              "ko-KR"
+                            )
+                          : "날짜 미상"}
+                      </CardDescription>
+                    </CardHeader>
+                    {tags.length > 0 && (
+                      <CardContent>
+                        <div className="flex flex-wrap gap-1">
+                          {tags.slice(0, 3).map((tag) => (
+                            <Badge key={tag} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
