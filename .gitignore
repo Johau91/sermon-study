@@ -45,3 +45,19 @@ next-env.d.ts
 
 # build artifacts
 /.tmp-build/
+
+# local tooling
+.venv/
+.claude/
+.vscode/
+-
+
+# local model artifacts
+*.gguf
+/models/
+/adapters/
+/adapters_v1/
+/fused_model/
+/fused_model_f16/
+/fused_model_fp16/
+/llama.cpp/

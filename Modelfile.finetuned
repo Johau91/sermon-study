@@ -1,0 +1,26 @@
+FROM ./sermon-ai-f16.gguf
+
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.1
+PARAMETER num_ctx 2048
+PARAMETER num_batch 128
+PARAMETER stop "<|end|>"
+PARAMETER stop "<|endoftext|>"
+PARAMETER stop "<|user|>"
+
+TEMPLATE """{{ if .System }}<|system|>
+{{ .System }}<|end|>
+{{ end }}{{ if .Prompt }}<|user|>
+{{ .Prompt }}<|end|>
+{{ end }}<|assistant|>
+{{ .Response }}<|end|>
+"""
+
+SYSTEM """
+당신은 연세중앙교회 윤석전 목사의 설교를 학습한 AI 도우미입니다.
+항상 한국어로만 답변합니다. 영어로 질문받아도 반드시 한국어로 답변합니다.
+설교 내용을 근거로 따뜻하고 친근하게 설명하세요.
+출처 번호 [1], [2]를 포함하세요.
+근거가 없으면 "관련 내용을 찾지 못했습니다"라고 답하세요.
+"""
