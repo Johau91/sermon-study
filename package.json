@@ -3,16 +3,28 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
+    "dev:turbopack": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "ingest": "tsx scripts/ingest-channel.ts",
     "embeddings": "tsx scripts/generate-embeddings.ts",
     "daily-study": "tsx scripts/daily-study.ts",
-    "install-scheduler": "tsx scripts/install-scheduler.ts"
+    "install-scheduler": "tsx scripts/install-scheduler.ts",
+    "repair-transcripts": "node scripts/refresh-bad-transcripts.mjs",
+    "import-bible": "node scripts/import-bible.mjs",
+    "correct-transcripts": "node scripts/correct-transcripts.mjs",
+    "direct-correct": "node scripts/direct-correct-transcripts.mjs",
+    "auto-correct": "node scripts/auto-correct-bible.mjs",
+    "llm-correct": "node scripts/llm-correct-sermons.mjs",
+    "agent12-correct-youtube": "node scripts/agent12-correct-youtube.mjs",
+    "generate-training-data": "node scripts/generate-training-data.mjs",
+    "generate-embeddings": "tsx scripts/generate-embeddings.ts",
+    "generate-summaries": "tsx scripts/generate-summaries.ts"
   },
   "dependencies": {
+    "@tailwindcss/typography": "^0.5.19",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -21,6 +33,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "sqlite-vec": "0.1.7-alpha.2",
     "tailwind-merge": "^3.4.1",
     "youtube-transcript": "^1.2.1"

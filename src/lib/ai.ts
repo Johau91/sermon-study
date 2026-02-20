@@ -1,5 +1,7 @@
+import { getDb } from "@/lib/db";
+
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-const MODEL = process.env.OLLAMA_MODEL || "gemma3:4b";
+const DEFAULT_MODEL = process.env.OLLAMA_MODEL || "sermon-ai";
 const NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || "2048");
 const NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || "64");
 const LOW_VRAM = process.env.OLLAMA_LOW_VRAM !== "false";
@@ -10,6 +12,18 @@ const OLLAMA_OPTIONS = {
   low_vram: LOW_VRAM,
 };
 
+function getModel(): string {
+  try {
+    const db = getDb();
+    const row = db
+      .prepare("SELECT value FROM app_settings WHERE key = ?")
+      .get("ai_model") as { value: string } | undefined;
+    return row?.value || DEFAULT_MODEL;
+  } catch {
+    return DEFAULT_MODEL;
+  }
+}
+
 export async function* streamChat(
   messages: { role: "user" | "assistant"; content: string }[],
   systemPrompt?: string
@@ -18,7 +32,7 @@ export async function* streamChat(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
+      model: getModel(),
       messages: [
         {
           role: "system",
@@ -40,6 +54,7 @@ export async function* streamChat(
 
   const decoder = new TextDecoder();
   let buffer = "";
+  let inThink = false;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -54,7 +69,18 @@ export async function* streamChat(
       try {
         const data = JSON.parse(line);
         if (data.message?.content) {
-          yield data.message.content;
+          let text = data.message.content;
+          // Filter out <think>...</think> blocks (Qwen3 reasoning)
+          if (text.includes("<think>")) inThink = true;
+          if (inThink) {
+            if (text.includes("</think>")) {
+              text = text.split("</think>").slice(1).join("</think>");
+              inThink = false;
+              if (text) yield text;
+            }
+            continue;
+          }
+          yield text;
         }
       } catch {
         // skip malformed lines
@@ -71,7 +97,7 @@ export async function generateText(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: MODEL,
+      model: getModel(),
       messages: [
         {
           role: "system",
@@ -88,7 +114,10 @@ export async function generateText(
 
   if (!res.ok) throw new Error(`Ollama error: ${res.status}`);
   const data = await res.json();
-  return data.message?.content || "";
+  let content = data.message?.content || "";
+  // Strip <think>...</think> blocks from Qwen3 reasoning
+  content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+  return content;
 }
 
 export async function generateQuiz(
@@ -134,4 +163,20 @@ export async function generateSummary(
     `다음 설교의 핵심 요약을 3-5문장으로 작성해주세요.\n\n제목: ${title}\n\n내용:\n${transcript.slice(0, 4000)}`,
     "설교 내용을 간결하게 요약하는 도우미입니다."
   );
+}
+
+export async function generateTags(
+  title: string,
+  transcript: string
+): Promise<string> {
+  const result = await generateText(
+    `다음 설교에서 핵심 키워드/태그를 5-8개 추출하세요. 쉼표로 구분된 키워드만 출력하세요 (다른 설명 없이).
+
+제목: ${title}
+
+내용:
+${transcript.slice(0, 4000)}`,
+    "설교 키워드 추출 도우미입니다. 쉼표로 구분된 키워드만 출력합니다."
+  );
+  return result.trim();
 }

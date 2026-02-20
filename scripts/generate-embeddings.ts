@@ -1,47 +1,41 @@
 import { mkdirSync } from "fs";
 import path from "path";
 import { getDb } from "../src/lib/db";
-import { generateEmbedding, embeddingToBuffer } from "../src/lib/embeddings";
+import {
+  generateEmbeddings,
+  generateEmbedding,
+  embeddingToBuffer,
+} from "../src/lib/embeddings";
 
 // Ensure data directory exists
 mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
 
-function syncVecChunks(db: ReturnType<typeof getDb>) {
-  // Migrate existing BLOB embeddings into vec_chunks
-  const rows = db
-    .prepare(
-      `SELECT c.id, c.embedding FROM chunks c
-       WHERE c.embedding IS NOT NULL
-         AND c.id NOT IN (SELECT chunk_id FROM vec_chunks)`
-    )
-    .all() as { id: number; embedding: Buffer }[];
-
-  if (rows.length === 0) {
-    console.log("vec_chunks already in sync.");
-    return;
-  }
-
-  console.log(`Syncing ${rows.length} existing embeddings to vec_chunks...`);
-  const insertVec = db.prepare(
-    `INSERT INTO vec_chunks(chunk_id, embedding) VALUES (?, ?)`
-  );
-
-  const tx = db.transaction(() => {
-    for (const row of rows) {
-      insertVec.run(BigInt(row.id), row.embedding);
-    }
-  });
-  tx();
-  console.log(`Synced ${rows.length} rows to vec_chunks.`);
-}
+const BATCH_SIZE = 10;
+const COMMIT_EVERY = 500;
 
 async function main() {
+  const forceFlag = process.argv.includes("--force");
   const db = getDb();
 
-  // First, sync any existing BLOB embeddings to vec_chunks
-  syncVecChunks(db);
+  if (forceFlag) {
+    console.log("--force: Dropping vec_chunks and clearing all embeddings...");
+    try {
+      db.exec(`DROP TABLE IF EXISTS vec_chunks`);
+    } catch {
+      // vec_chunks may not exist
+    }
+    // Recreate vec_chunks with 1024 dimensions
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
+        chunk_id INTEGER PRIMARY KEY,
+        embedding float[1024] distance_metric=cosine
+      );
+    `);
+    db.exec(`UPDATE chunks SET embedding = NULL`);
+    console.log("All embeddings cleared. Starting fresh.\n");
+  }
 
-  // Get all chunks without embeddings
+  // Get all chunks that need embeddings
   const chunks = db
     .prepare(`SELECT id, content FROM chunks WHERE embedding IS NULL`)
     .all() as { id: number; content: string }[];
@@ -59,33 +53,72 @@ async function main() {
   const updateChunk = db.prepare(
     `UPDATE chunks SET embedding = ? WHERE id = ?`
   );
+  const deleteVec = db.prepare(
+    `DELETE FROM vec_chunks WHERE chunk_id = ?`
+  );
   const insertVec = db.prepare(
     `INSERT INTO vec_chunks(chunk_id, embedding) VALUES (?, ?)`
   );
 
-  for (const chunk of chunks) {
+  // Process in batches
+  for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+    const batch = chunks.slice(i, i + BATCH_SIZE);
+
     try {
-      const embedding = await generateEmbedding(chunk.content);
-      const buffer = embeddingToBuffer(embedding);
+      let embeddings: Float32Array[];
 
-      db.transaction(() => {
-        updateChunk.run(buffer, chunk.id);
-        insertVec.run(BigInt(chunk.id), buffer);
-      })();
+      if (batch.length === 1) {
+        const emb = await generateEmbedding(batch[0].content);
+        embeddings = [emb];
+      } else {
+        embeddings = await generateEmbeddings(
+          batch.map((c) => c.content)
+        );
+      }
 
-      completed++;
+      // Write batch to DB
+      const tx = db.transaction(() => {
+        for (let j = 0; j < batch.length; j++) {
+          const buffer = embeddingToBuffer(embeddings[j]);
+          updateChunk.run(buffer, batch[j].id);
+          deleteVec.run(BigInt(batch[j].id));
+          insertVec.run(BigInt(batch[j].id), buffer);
+        }
+      });
+      tx();
 
-      // Progress display
-      const pct = Math.round((completed / chunks.length) * 100);
-      const bar =
-        "█".repeat(Math.floor(pct / 2)) +
-        "░".repeat(50 - Math.floor(pct / 2));
-      process.stdout.write(
-        `\r  [${bar}] ${pct}% (${completed}/${chunks.length})`
-      );
+      completed += batch.length;
     } catch (err) {
-      failed++;
-      console.error(`\n  Failed chunk ${chunk.id}: ${err}`);
+      // Fallback: try one-by-one for the failed batch
+      for (const chunk of batch) {
+        try {
+          const embedding = await generateEmbedding(chunk.content);
+          const buffer = embeddingToBuffer(embedding);
+          db.transaction(() => {
+            updateChunk.run(buffer, chunk.id);
+            deleteVec.run(BigInt(chunk.id));
+            insertVec.run(BigInt(chunk.id), buffer);
+          })();
+          completed++;
+        } catch (innerErr) {
+          failed++;
+          console.error(`\n  Failed chunk ${chunk.id}: ${innerErr}`);
+        }
+      }
+    }
+
+    // Progress display
+    const pct = Math.round((completed / chunks.length) * 100);
+    const bar =
+      "█".repeat(Math.floor(pct / 2)) +
+      "░".repeat(50 - Math.floor(pct / 2));
+    process.stdout.write(
+      `\r  [${bar}] ${pct}% (${completed}/${chunks.length})`
+    );
+
+    // Periodic checkpoint info
+    if (completed > 0 && completed % COMMIT_EVERY < BATCH_SIZE) {
+      process.stdout.write(` [checkpoint @ ${completed}]`);
     }
   }
 

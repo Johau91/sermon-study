@@ -6,6 +6,8 @@ export interface SearchResult {
   sermon_title: string;
   sermon_id: number;
   youtube_id: string;
+  sermon_summary: string | null;
+  sermon_tags: string | null;
   score: number;
 }
 
@@ -31,6 +33,7 @@ export async function ftsSearch(
       .prepare(
         `
       SELECT c.*, s.title as sermon_title, s.youtube_id,
+             s.summary as sermon_summary, s.tags as sermon_tags,
              rank
       FROM chunks_fts
       JOIN chunks c ON c.id = chunks_fts.rowid
@@ -47,6 +50,8 @@ export async function ftsSearch(
   const typedRows = rows as (Chunk & {
     sermon_title: string;
     youtube_id: string;
+    sermon_summary: string | null;
+    sermon_tags: string | null;
     rank: number;
   })[];
 
@@ -61,6 +66,8 @@ export async function ftsSearch(
     sermon_title: row.sermon_title,
     sermon_id: row.sermon_id,
     youtube_id: row.youtube_id,
+    sermon_summary: row.sermon_summary,
+    sermon_tags: row.sermon_tags,
     score: 1 / (idx + 1), // Rank-based score for RRF
   }));
 }
@@ -76,7 +83,8 @@ export async function vectorSearch(
   const rows = db
     .prepare(
       `
-    SELECT vc.chunk_id, vc.distance, c.*, s.title as sermon_title, s.youtube_id
+    SELECT vc.chunk_id, vc.distance, c.*, s.title as sermon_title, s.youtube_id,
+           s.summary as sermon_summary, s.tags as sermon_tags
     FROM vec_chunks vc
     JOIN chunks c ON c.id = vc.chunk_id
     JOIN sermons s ON s.id = c.sermon_id
@@ -88,6 +96,8 @@ export async function vectorSearch(
     distance: number;
     sermon_title: string;
     youtube_id: string;
+    sermon_summary: string | null;
+    sermon_tags: string | null;
   })[];
 
   return rows.map((row) => ({
@@ -101,6 +111,8 @@ export async function vectorSearch(
     sermon_title: row.sermon_title,
     sermon_id: row.sermon_id,
     youtube_id: row.youtube_id,
+    sermon_summary: row.sermon_summary,
+    sermon_tags: row.sermon_tags,
     score: 1 - row.distance,
   }));
 }

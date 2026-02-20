@@ -1,27 +1,47 @@
 # Handoff - 설교 학습 (sermon-study)
 
 ## 현재 상태
-- Next.js 16.1.6 App Router 프로젝트 (pnpm dev 실행 중)
+- Next.js 16.1.6 App Router 프로젝트
 - Tech: React 19, Tailwind CSS 4, shadcn/ui, SQLite (better-sqlite3 + sqlite-vec), Ollama
-- 설교 5개 수집 완료, 173개 청크 생성 완료, 173개 임베딩 생성 완료
-- AI 채팅 (RAG + FTS + 벡터 하이브리드 검색), 퀴즈, 대시보드 동작 확인
-- 임베딩 모델: all-minilm (384차원), sqlite-vec KNN 검색 활성
+- **설교 3,542개** 수집 완료 (전체 플레이리스트)
+- **64,353개 청크** 생성 완료
+- 개역한글 성경 30,929절 임포트 완료
+- **임베딩 모델: bge-m3 (1024차원)** — all-minilm에서 업그레이드 (재임베딩 필요)
+- AI 모델: **sermon-ai** (phi4-mini 기반 Modelfile 커스텀, Ollama)
+- AI 채팅 (RAG + FTS + 벡터 하이브리드 검색), 퀴즈, 대시보드 동작
+- **UI: 토스(Toss) 스타일 전면 리디자인 완료**
+- **설정 페이지**: AI 답변 스타일 프리셋 + 커스텀 프롬프트 + AI 모델 선택
+- **RAG 품질 개선 3단계 구현 완료** (코드 변경만, 데이터 재생성 필요)
+
+## 요약/태그 생성 진행 상황 (2026-02-20 기준)
+- 2025: **148/148** ✅ 완료
+- 2026: **17/67** (50개 미완)
+- 2024: **125/141** (16개 미완)
+- 2023: 16/201 (165개 미완)
+- 2022-2019: 0/972 (미시작)
+- 2018 이전: 0/1,957 (미시작)
+
+### 현재 실행 중인 에이전트 (sermon-pipeline 팀)
+- **sum-recent**: 2026+2024 미완료 (~56개)
+- **sum-2023**: 2023년 (~165개)
+- **sum-2022**: 2022-2021년 (~532개)
+- **sum-2020**: 2020-2019년 (~440개)
+- 2018 이전은 별도 에이전트 필요
 
 ## 최근 작업
-- sqlite-vec 통합: 브루트포스 벡터 검색 → sqlite-vec MATCH KNN 검색으로 교체
-  - `sqlite-vec` 패키지 설치, `next.config.ts`/`package.json` 설정
-  - `db.ts`: sqlite-vec 확장 로드 + `vec_chunks` 가상 테이블 생성
-  - `search.ts`: `vectorSearch()` → vec_chunks MATCH 쿼리, `hybridSearch()` vec_chunks 기준 체크
-  - `generate-embeddings.ts`: 듀얼 인서트 (chunks.embedding BLOB + vec_chunks) + syncVecChunks 마이그레이션
-  - `embeddings.ts`: 모델 gemma3:4b → all-minilm 변경, 500자 truncation 추가
-  - FTS 트리거 버그 수정: `chunks_au`가 embedding UPDATE 시에도 발동 → `UPDATE OF content` 제한
-  - vec_chunks PK는 BigInt으로 전달 필요 (better-sqlite3 + sqlite-vec 호환)
+- **RAG 품질 개선 (3 Phase)** 완료
+- **요약/태그 생성 파이프라인** 실행 중 (4개 병렬 에이전트)
+- **ASR 교정**: llm-correct-by-sermon.mjs로 5개 완료 (전체 대상 미결정)
 
 ## 알려진 이슈
-- Node.js 25.2.1에서 tsx + ESM 조합 시 OOM 발생 (CJS `node -e`는 정상)
-- all-minilm 컨텍스트 길이 제한: 256 토큰, 한글 ~500자 truncation 적용 중
+- 2016~2019년 설교 ASR 품질 낮음 (요약은 생성 가능, 교정 효과 낮을 수 있음)
+- LoRA 파인튜닝: Phi-4-mini 4bit 위 LoRA는 한계 → RAG 개선에 집중
 
 ## TODO
-- [ ] `pnpm install-scheduler` 로 스케줄러 설치
+- [ ] `ollama pull bge-m3` 실행 (1.2GB 다운로드)
+- [ ] `pnpm generate-embeddings --force` 실행 (64K 청크 재임베딩, 수 시간)
+- [ ] 2018년 이전 설교 요약 생성 (에이전트 추가 필요, ~2,000개)
+- [ ] 요약 생성 완료 후 RAG 검색 품질 비교 검증
+- [ ] LLM 설교 교정 확장 (현재 5개만 완료)
+- [ ] 교정 완료 후 적용 (`node scripts/llm-correct-by-sermon.mjs --apply`)
 - [ ] 다크 모드 토글 버튼 추가
-- [ ] 설교 상세 페이지 (sermons/[id]) UI 확인

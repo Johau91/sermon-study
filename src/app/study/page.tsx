@@ -4,18 +4,6 @@ import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
   GraduationCap,
   Loader2,
   CheckCircle,
@@ -56,14 +44,12 @@ function StudyPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [sermonTitle, setSermonTitle] = useState<string>("");
 
-  // Generate quiz when sermonId is available
   const generateQuiz = useCallback(
     async (sid: string) => {
       try {
         setPhase("loading");
         setError(null);
 
-        // Fetch sermon info
         const sermonRes = await fetch(`/api/sermons/${sid}`);
         if (sermonRes.ok) {
           const sermonData = await sermonRes.json();
@@ -157,7 +143,6 @@ function StudyPageInner() {
       setUserAnswers(newAnswers);
       setResults((prev) => [...prev, result]);
 
-      // Move to next question or results
       if (currentIndex < questions.length - 1) {
         setCurrentIndex((prev) => prev + 1);
         setCurrentAnswer("");
@@ -184,40 +169,33 @@ function StudyPageInner() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <GraduationCap className="size-7" />
+          <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
             학습
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-2 text-[15px] text-gray-500">
             설교를 선택하여 퀴즈 학습을 시작하세요.
           </p>
         </div>
 
         {error && (
-          <Card>
-            <CardContent className="py-4 text-sm text-destructive">
-              {error}
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
+            {error}
+          </div>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>설교 선택</CardTitle>
-            <CardDescription>
-              학습할 설교를 선택하세요. 설교 내용을 바탕으로 퀴즈가 자동
-              생성됩니다.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link href="/sermons">
-                <BookOpen className="mr-2 size-4" />
-                설교 목록에서 선택하기
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/[0.04]">
+          <h2 className="text-lg font-bold text-gray-900">설교 선택</h2>
+          <p className="mt-1.5 text-sm text-gray-500">
+            학습할 설교를 선택하세요. 설교 내용을 바탕으로 퀴즈가 자동 생성됩니다.
+          </p>
+          <Link
+            href="/sermons"
+            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#3182F6] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] active:scale-[0.97]"
+          >
+            <BookOpen className="size-4" />
+            설교 목록에서 선택하기
+          </Link>
+        </div>
       </div>
     );
   }
@@ -226,9 +204,11 @@ function StudyPageInner() {
   if (phase === "loading") {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="mb-4 size-10 animate-spin text-muted-foreground" />
-        <p className="text-lg font-medium">퀴즈를 생성하고 있습니다...</p>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
+          <Loader2 className="size-8 animate-spin text-[#3182F6]" />
+        </div>
+        <p className="text-lg font-bold text-gray-900">퀴즈를 생성하고 있습니다...</p>
+        <p className="mt-2 text-sm text-gray-500">
           설교 내용을 분석하여 학습 문제를 만들고 있어요.
         </p>
       </div>
@@ -240,113 +220,106 @@ function StudyPageInner() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Trophy className="size-7" />
+          <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
             학습 결과
           </h1>
           {sermonTitle && (
-            <p className="mt-2 text-muted-foreground">{sermonTitle}</p>
+            <p className="mt-2 text-[15px] text-gray-500">{sermonTitle}</p>
           )}
         </div>
 
         {/* Score Summary */}
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-4xl">
-              {scorePercent}
-              <span className="text-2xl text-muted-foreground">%</span>
-            </CardTitle>
-            <CardDescription>
-              {questions.length}문제 중 {correctCount}문제 정답
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
+        <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/[0.04]">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
+            <Trophy className="size-8 text-[#3182F6]" />
+          </div>
+          <p className="text-[40px] font-bold text-gray-900">
+            {scorePercent}
+            <span className="text-xl text-gray-400">%</span>
+          </p>
+          <p className="mt-1 text-sm text-gray-500">
+            {questions.length}문제 중 {correctCount}문제 정답
+          </p>
+          <div className="mt-4">
             {scorePercent >= 80 ? (
-              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+              <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-medium text-green-600">
                 훌륭합니다!
-              </Badge>
+              </span>
             ) : scorePercent >= 50 ? (
-              <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+              <span className="rounded-full bg-yellow-50 px-4 py-1.5 text-sm font-medium text-yellow-600">
                 좋은 시작이에요!
-              </Badge>
+              </span>
             ) : (
-              <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+              <span className="rounded-full bg-orange-50 px-4 py-1.5 text-sm font-medium text-orange-600">
                 다시 한번 도전해보세요!
-              </Badge>
+              </span>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Individual Results */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {results.map((result, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <div className="flex items-start gap-2">
-                  {result.isCorrect ? (
-                    <CheckCircle className="mt-0.5 size-5 shrink-0 text-green-600" />
-                  ) : (
-                    <XCircle className="mt-0.5 size-5 shrink-0 text-red-500" />
-                  )}
-                  <div>
-                    <CardTitle className="text-base">
-                      Q{i + 1}. {questions[i].question}
-                    </CardTitle>
+            <div
+              key={i}
+              className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]"
+            >
+              <div className="flex items-start gap-3">
+                {result.isCorrect ? (
+                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-green-50">
+                    <CheckCircle className="size-4 text-green-500" />
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    나의 답변
-                  </p>
-                  <p className="text-sm">{result.userAnswer}</p>
-                </div>
-                <Separator />
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    모범 답안
-                  </p>
-                  <p className="text-sm">{result.expectedAnswer}</p>
-                </div>
-                {result.feedback && (
-                  <>
-                    <Separator />
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        피드백
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {result.feedback}
-                      </p>
-                    </div>
-                  </>
+                ) : (
+                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-red-50">
+                    <XCircle className="size-4 text-red-500" />
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+                <div className="flex-1 space-y-3">
+                  <p className="text-[15px] font-semibold text-gray-900">
+                    Q{i + 1}. {questions[i].question}
+                  </p>
+                  <div className="rounded-xl bg-gray-50 p-3">
+                    <p className="text-xs font-medium text-gray-400 mb-1">나의 답변</p>
+                    <p className="text-sm text-gray-700">{result.userAnswer}</p>
+                  </div>
+                  <div className="rounded-xl bg-[#3182F6]/5 p-3">
+                    <p className="text-xs font-medium text-[#3182F6]/60 mb-1">모범 답안</p>
+                    <p className="text-sm text-gray-700">{result.expectedAnswer}</p>
+                  </div>
+                  {result.feedback && (
+                    <p className="text-sm text-gray-500">{result.feedback}</p>
+                  )}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2.5">
           {sermonId && (
-            <Button
+            <button
+              type="button"
               onClick={() => generateQuiz(sermonId)}
-              variant="outline"
+              className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97]"
             >
-              <RefreshCw className="mr-2 size-4" />
+              <RefreshCw className="size-4" />
               다시 도전하기
-            </Button>
+            </button>
           )}
-          <Button asChild variant="secondary">
-            <Link href="/sermons">
-              <BookOpen className="mr-2 size-4" />
-              다른 설교 선택
-            </Link>
-          </Button>
-          <Button asChild variant="ghost">
-            <Link href="/">홈으로</Link>
-          </Button>
+          <Link
+            href="/sermons"
+            className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97]"
+          >
+            <BookOpen className="size-4" />
+            다른 설교 선택
+          </Link>
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700"
+          >
+            홈으로
+          </Link>
         </div>
       </div>
     );
@@ -360,111 +333,103 @@ function StudyPageInner() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-          <GraduationCap className="size-6" />
+        <h1 className="text-[22px] font-bold tracking-tight text-gray-900">
           학습 퀴즈
         </h1>
         {sermonTitle && (
-          <p className="mt-1 text-sm text-muted-foreground">{sermonTitle}</p>
+          <p className="mt-1 text-sm text-gray-500">{sermonTitle}</p>
         )}
       </div>
 
       {/* Progress */}
       <div className="space-y-2">
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>
+        <div className="flex justify-between text-sm">
+          <span className="font-medium text-gray-700">
             문제 {currentIndex + 1} / {questions.length}
           </span>
-          <span>{Math.round(progress)}% 완료</span>
+          <span className="text-gray-400">{Math.round(progress)}% 완료</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
+            className="h-full rounded-full bg-[#3182F6] transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       {/* Question Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">
-            Q{currentIndex + 1}. {currentQuestion.question}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            placeholder="답변을 입력하세요..."
-            value={currentAnswer}
-            onChange={(e) => setCurrentAnswer(e.target.value)}
-            rows={4}
-            disabled={submitting}
-            className="resize-none"
-          />
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <p className="text-xs text-muted-foreground">
+      <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/[0.04]">
+        <p className="text-[17px] font-bold text-gray-900 leading-relaxed">
+          Q{currentIndex + 1}. {currentQuestion.question}
+        </p>
+        <textarea
+          placeholder="답변을 입력하세요..."
+          value={currentAnswer}
+          onChange={(e) => setCurrentAnswer(e.target.value)}
+          rows={4}
+          disabled={submitting}
+          className="mt-5 w-full resize-none rounded-xl bg-gray-50 p-4 text-[15px] text-gray-800 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30 transition-all"
+        />
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-gray-400">
             설교 내용을 떠올리며 답변해보세요.
           </p>
-          <Button
+          <button
+            type="button"
             onClick={submitAnswer}
             disabled={!currentAnswer.trim() || submitting}
+            className="flex items-center gap-2 rounded-xl bg-[#3182F6] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.97]"
           >
             {submitting ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
                 채점 중...
               </>
             ) : currentIndex < questions.length - 1 ? (
               <>
                 제출하고 다음으로
-                <ArrowRight className="ml-2 size-4" />
+                <ArrowRight className="size-4" />
               </>
             ) : (
               <>
                 제출하고 결과 보기
-                <Trophy className="ml-2 size-4" />
+                <Trophy className="size-4" />
               </>
             )}
-          </Button>
-        </CardFooter>
-      </Card>
+          </button>
+        </div>
+      </div>
 
       {/* Error */}
       {error && (
-        <Card>
-          <CardContent className="py-4 text-sm text-destructive">
-            {error}
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
+          {error}
+        </div>
       )}
 
-      {/* Previous results (if any) */}
+      {/* Previous results */}
       {results.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-muted-foreground">
-            이전 답변 결과
-          </h3>
+          <h3 className="text-sm font-medium text-gray-400">이전 답변 결과</h3>
           {results.map((result, i) => (
-            <Card key={i} className="opacity-80">
-              <CardHeader className="py-3">
-                <div className="flex items-center gap-2">
-                  {result.isCorrect ? (
-                    <CheckCircle className="size-4 text-green-600" />
-                  ) : (
-                    <XCircle className="size-4 text-red-500" />
-                  )}
-                  <CardTitle className="text-sm">
-                    Q{i + 1}. {questions[i].question}
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0 pb-3">
-                <p className="text-xs text-muted-foreground">
-                  {result.feedback}
+            <div
+              key={i}
+              className="rounded-2xl bg-white/80 p-4 ring-1 ring-black/[0.04]"
+            >
+              <div className="flex items-center gap-2">
+                {result.isCorrect ? (
+                  <CheckCircle className="size-4 text-green-500" />
+                ) : (
+                  <XCircle className="size-4 text-red-500" />
+                )}
+                <p className="text-sm font-medium text-gray-700">
+                  Q{i + 1}. {questions[i].question}
                 </p>
-              </CardContent>
-            </Card>
+              </div>
+              <p className="mt-2 pl-6 text-xs text-gray-500">
+                {result.feedback}
+              </p>
+            </div>
           ))}
         </div>
       )}
@@ -474,7 +439,13 @@ function StudyPageInner() {
 
 export default function StudyPage() {
   return (
-    <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="size-8 animate-spin text-muted-foreground" /></div>}>
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-20">
+          <Loader2 className="size-8 animate-spin text-[#3182F6]" />
+        </div>
+      }
+    >
       <StudyPageInner />
     </Suspense>
   );

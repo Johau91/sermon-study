@@ -1,8 +1,8 @@
 const OLLAMA_BASE = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-const EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "all-minilm";
+const EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "bge-m3";
 
-// all-minilm has 256 token context; truncate to stay within limits
-const MAX_EMBED_CHARS = 500;
+// bge-m3 has 8192 token context; generous truncation limit
+const MAX_EMBED_CHARS = 2000;
 
 export async function generateEmbedding(text: string): Promise<Float32Array> {
   const truncated = text.length > MAX_EMBED_CHARS ? text.slice(0, MAX_EMBED_CHARS) : text;

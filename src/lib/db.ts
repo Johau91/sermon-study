@@ -95,6 +95,25 @@ function initSchema(db: Database.Database) {
       started_at TEXT DEFAULT (datetime('now')),
       completed_at TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS bible_verses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      translation TEXT NOT NULL DEFAULT '개역한글',
+      book TEXT NOT NULL,
+      chapter INTEGER NOT NULL,
+      verse INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      UNIQUE(translation, book, chapter, verse)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bible_lookup
+      ON bible_verses(translation, book, chapter, verse);
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
   `);
 
   // Fix: restrict FTS update trigger to content-only changes (avoid firing on embedding updates)
@@ -106,10 +125,22 @@ function initSchema(db: Database.Database) {
     END;
   `);
 
+  // Migrate vec_chunks: drop old 384-dim table if dimensions don't match
+  try {
+    // If table exists but has wrong dimensions, recreate it
+    const sample = db.prepare(`SELECT embedding FROM vec_chunks LIMIT 1`).get() as { embedding: Buffer } | undefined;
+    if (sample && sample.embedding && sample.embedding.byteLength !== 1024 * 4) {
+      console.log("Migrating vec_chunks from 384-dim to 1024-dim...");
+      db.exec(`DROP TABLE vec_chunks`);
+    }
+  } catch {
+    // Table doesn't exist yet, will be created below
+  }
+
   db.exec(`
     CREATE VIRTUAL TABLE IF NOT EXISTS vec_chunks USING vec0(
       chunk_id INTEGER PRIMARY KEY,
-      embedding float[384] distance_metric=cosine
+      embedding float[1024] distance_metric=cosine
     );
   `);
 }
@@ -161,4 +192,13 @@ export type DailyStudy = {
   questions: string | null;
   completed: number;
   created_at: string;
+};
+
+export type BibleVerse = {
+  id: number;
+  translation: string;
+  book: string;
+  chapter: number;
+  verse: number;
+  text: string;
 };

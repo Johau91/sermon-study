@@ -44,10 +44,11 @@ export async function getChannelVideos(
 }
 
 export async function getTranscript(videoId: string): Promise<string | null> {
-  // Use yt-dlp to get auto-generated subtitles via stdout
+  // Use yt-dlp to get auto-generated subtitles and suppress log noise.
   try {
+    const tmpBase = `/tmp/yt-sub-${videoId}`;
     const raw = execSync(
-      `yt-dlp --write-auto-sub --sub-lang ko --sub-format vtt --skip-download --print-to-file "after_move:filepath" /dev/stderr -o "/tmp/yt-sub-%(id)s" "https://www.youtube.com/watch?v=${videoId}" 2>/dev/null && cat "/tmp/yt-sub-${videoId}.ko.vtt" && rm -f "/tmp/yt-sub-${videoId}"*`,
+      `yt-dlp --write-auto-sub --sub-lang ko --sub-format vtt --skip-download --quiet --no-warnings -o "${tmpBase}" "https://www.youtube.com/watch?v=${videoId}" && cat "${tmpBase}.ko.vtt" && rm -f "${tmpBase}"*`,
       { encoding: "utf-8", timeout: 60000, maxBuffer: 10 * 1024 * 1024 }
     );
     if (!raw || raw.trim().length < 100) return null;
@@ -55,6 +56,40 @@ export async function getTranscript(videoId: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+function applyBibleAwareCorrections(text: string): string {
+  let corrected = text;
+
+  // Common worship terms frequently split by ASR.
+  corrected = corrected
+    .replace(/하나\s*님/g, "하나님")
+    .replace(/예수\s*님/g, "예수님")
+    .replace(/주\s*님/g, "주님")
+    .replace(/그리스\s*도/g, "그리스도")
+    .replace(/성\s*령/g, "성령");
+
+  // Normalize scripture notation spacing.
+  corrected = corrected
+    .replace(/(\d+)\s*장\s*(\d+)\s*절/g, "$1장 $2절")
+    .replace(/(\d+)\s*:\s*(\d+)/g, "$1:$2")
+    .replace(/([가-힣]+)\s*(\d+)\s*장/g, "$1 $2장");
+
+  // Normalize common abbreviated Korean book names when followed by chapter/verse.
+  corrected = corrected
+    .replace(/\b고전\s*(\d+)/g, "고린도전서 $1")
+    .replace(/\b고후\s*(\d+)/g, "고린도후서 $1")
+    .replace(/\b살전\s*(\d+)/g, "데살로니가전서 $1")
+    .replace(/\b살후\s*(\d+)/g, "데살로니가후서 $1")
+    .replace(/\b딤전\s*(\d+)/g, "디모데전서 $1")
+    .replace(/\b딤후\s*(\d+)/g, "디모데후서 $1")
+    .replace(/\b벧전\s*(\d+)/g, "베드로전서 $1")
+    .replace(/\b벧후\s*(\d+)/g, "베드로후서 $1")
+    .replace(/\b요일\s*(\d+)/g, "요한일서 $1")
+    .replace(/\b요이\s*(\d+)/g, "요한이서 $1")
+    .replace(/\b요삼\s*(\d+)/g, "요한삼서 $1");
+
+  return corrected.replace(/\s+/g, " ").trim();
 }
 
 function cleanSubtitles(raw: string): string {
@@ -91,14 +126,27 @@ function cleanSubtitles(raw: string): string {
       .replace(/\[웃음\]/g, "")
       .trim();
 
-    // Skip empty or duplicate lines
-    if (cleaned && cleaned !== prevLine) {
-      textLines.push(cleaned);
+    // Skip empty lines and collapse progressive duplicate subtitles.
+    if (!cleaned) continue;
+    if (cleaned === prevLine) continue;
+
+    const lastIndex = textLines.length - 1;
+    const lastLine = lastIndex >= 0 ? textLines[lastIndex] : "";
+    if (lastLine && cleaned.startsWith(lastLine)) {
+      textLines[lastIndex] = cleaned;
       prevLine = cleaned;
+      continue;
     }
+    if (lastLine && lastLine.startsWith(cleaned)) {
+      continue;
+    }
+
+    textLines.push(cleaned);
+    prevLine = cleaned;
   }
 
-  return textLines.join(" ").replace(/\s+/g, " ").trim();
+  const merged = textLines.join(" ").replace(/\s+/g, " ").trim();
+  return applyBibleAwareCorrections(merged);
 }
 
 export function getVideoUrl(videoId: string): string {

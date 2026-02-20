@@ -3,15 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
   BookOpen,
   GraduationCap,
   MessageCircle,
@@ -50,7 +41,6 @@ export default function DashboardPage() {
       try {
         setLoading(true);
 
-        // Fetch sermons
         const sermonsRes = await fetch("/api/sermons");
         if (sermonsRes.ok) {
           const sermonsData = await sermonsRes.json();
@@ -64,7 +54,6 @@ export default function DashboardPage() {
           }));
         }
 
-        // Fetch today's quiz status
         const quizRes = await fetch("/api/quiz?today=true");
         if (quizRes.ok) {
           const quizData = await quizRes.json();
@@ -91,18 +80,24 @@ export default function DashboardPage() {
       value: stats.totalSermons,
       icon: BookOpen,
       description: "등록된 설교 수",
+      color: "#3182F6",
+      bgColor: "bg-[#3182F6]/10",
     },
     {
       title: "완료한 학습",
       value: stats.completedStudies,
       icon: GraduationCap,
       description: "퀴즈 완료 횟수",
+      color: "#00C48C",
+      bgColor: "bg-[#00C48C]/10",
     },
     {
       title: "퀴즈 점수",
       value: `${stats.quizScore}%`,
       icon: TrendingUp,
       description: "평균 정답률",
+      color: "#FF6B6B",
+      bgColor: "bg-[#FF6B6B]/10",
     },
   ];
 
@@ -110,118 +105,105 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">오늘의 학습</h1>
-        <p className="mt-2 text-muted-foreground">
+        <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
+          오늘의 학습
+        </h1>
+        <p className="mt-2 text-[15px] text-gray-500">
           말씀을 통해 매일 성장하세요. 설교를 듣고, 질문하고, 퀴즈로 확인하세요.
         </p>
       </div>
 
       {/* Quick Actions */}
-      <div className="flex flex-wrap gap-3">
-        <Button asChild>
-          <Link href="/sermons">
-            <BookOpen className="mr-2 size-4" />
-            설교 보기
-          </Link>
-        </Button>
-        <Button asChild variant="secondary">
-          <Link href="/chat">
-            <MessageCircle className="mr-2 size-4" />
-            AI에게 질문하기
-          </Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/study">
-            <GraduationCap className="mr-2 size-4" />
-            학습 시작
-          </Link>
-        </Button>
+      <div className="flex flex-wrap gap-2.5">
+        <Link
+          href="/sermons"
+          className="flex items-center gap-2 rounded-xl bg-[#3182F6] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] active:scale-[0.97]"
+        >
+          <BookOpen className="size-4" />
+          설교 보기
+        </Link>
+        <Link
+          href="/chat"
+          className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-black/[0.04] transition-all hover:bg-gray-50 active:scale-[0.97]"
+        >
+          <MessageCircle className="size-4" />
+          AI에게 질문하기
+        </Link>
+        <Link
+          href="/study"
+          className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-black/[0.04] transition-all hover:bg-gray-50 active:scale-[0.97]"
+        >
+          <GraduationCap className="size-4" />
+          학습 시작
+        </Link>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <stat.icon className="size-4" />
-                {stat.title}
-              </CardDescription>
-              <CardTitle className="text-2xl">{loading ? "-" : stat.value}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-xs text-muted-foreground">
-                {stat.description}
-              </p>
-            </CardContent>
-          </Card>
+          <div
+            key={stat.title}
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`flex size-10 items-center justify-center rounded-xl ${stat.bgColor}`}>
+                <stat.icon className="size-5" style={{ color: stat.color }} />
+              </div>
+              <span className="text-sm font-medium text-gray-500">{stat.title}</span>
+            </div>
+            <p className="mt-3 text-[28px] font-bold text-gray-900">
+              {loading ? (
+                <span className="inline-block h-8 w-16 animate-pulse rounded-lg bg-gray-100" />
+              ) : (
+                stat.value
+              )}
+            </p>
+            <p className="mt-1 text-xs text-gray-400">{stat.description}</p>
+          </div>
         ))}
       </div>
 
       {/* Recent Sermons */}
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">최근 설교</h2>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/sermons">
-              전체 보기 <ChevronRight className="ml-1 size-4" />
-            </Link>
-          </Button>
+          <h2 className="text-xl font-bold text-gray-900">최근 설교</h2>
+          <Link
+            href="/sermons"
+            className="flex items-center gap-0.5 text-sm font-medium text-gray-500 transition-colors hover:text-[#3182F6]"
+          >
+            전체 보기
+            <ChevronRight className="size-4" />
+          </Link>
         </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">불러오는 중...</span>
+            <Loader2 className="size-6 animate-spin text-[#3182F6]" />
           </div>
         ) : error ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              {error}
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-black/[0.04]">
+            {error}
+          </div>
         ) : sermons.length === 0 ? (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              아직 등록된 설교가 없습니다. 설교를 추가해주세요.
-            </CardContent>
-          </Card>
+          <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-black/[0.04]">
+            아직 등록된 설교가 없습니다. 설교를 추가해주세요.
+          </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {sermons.slice(0, 4).map((sermon) => {
-              const tags = sermon.tags
-                ? sermon.tags.split(",").map((t) => t.trim())
-                : [];
-              return (
-                <Link key={sermon.id} href={`/sermons/${sermon.id}`}>
-                  <Card className="transition-colors hover:bg-accent/50 cursor-pointer h-full">
-                    <CardHeader>
-                      <CardTitle className="text-base line-clamp-2">
-                        {sermon.title}
-                      </CardTitle>
-                      <CardDescription>
-                        {sermon.published_at
-                          ? new Date(sermon.published_at).toLocaleDateString(
-                              "ko-KR"
-                            )
-                          : "날짜 미상"}
-                      </CardDescription>
-                    </CardHeader>
-                    {tags.length > 0 && (
-                      <CardContent>
-                        <div className="flex flex-wrap gap-1">
-                          {tags.slice(0, 3).map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                    )}
-                  </Card>
-                </Link>
-              );
-            })}
+            {sermons.slice(0, 4).map((sermon) => (
+              <Link key={sermon.id} href={`/sermons/${sermon.id}`}>
+                <div className="group rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] transition-all hover:shadow-md hover:ring-[#3182F6]/20">
+                  <h3 className="text-[15px] font-semibold text-gray-900 line-clamp-2 group-hover:text-[#3182F6] transition-colors">
+                    {sermon.title}
+                  </h3>
+                  <p className="mt-2 text-xs text-gray-400">
+                    {sermon.published_at
+                      ? new Date(sermon.published_at).toLocaleDateString("ko-KR")
+                      : "날짜 미상"}
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>
