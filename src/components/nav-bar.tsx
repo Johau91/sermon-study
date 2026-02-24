@@ -23,15 +23,15 @@ export function NavBar() {
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 items-center px-4 max-w-5xl">
+      <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-3 sm:px-4">
         <Link
           href="/"
-          className="mr-8 flex items-center gap-2 font-semibold"
+          className="mr-1 flex shrink-0 items-center gap-2 font-semibold sm:mr-6"
         >
           <BookOpen className="size-5 text-[#3182F6]" />
-          <span>설교 학습</span>
+          <span className="hidden sm:inline">설교 학습</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="ml-auto flex items-center gap-1">
           {navItems.map((item) => {
             const isActive =
               item.href === "/"
@@ -41,7 +41,7 @@ export function NavBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors sm:justify-start sm:px-3 ${
                   isActive
                     ? "text-[#3182F6] bg-[#3182F6]/5"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -80,7 +80,7 @@ export function PageWrapper({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-5 sm:px-5 sm:py-6">
       {children}
     </div>
   );

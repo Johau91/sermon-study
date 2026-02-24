@@ -1,47 +1,49 @@
 # Handoff - 설교 학습 (sermon-study)
 
 ## 현재 상태
-- Next.js 16.1.6 App Router 프로젝트
-- Tech: React 19, Tailwind CSS 4, shadcn/ui, SQLite (better-sqlite3 + sqlite-vec), Ollama
-- **설교 3,542개** 수집 완료 (전체 플레이리스트)
-- **64,353개 청크** 생성 완료
-- 개역한글 성경 30,929절 임포트 완료
-- **임베딩 모델: bge-m3 (1024차원)** — all-minilm에서 업그레이드 (재임베딩 필요)
-- AI 모델: **sermon-ai** (phi4-mini 기반 Modelfile 커스텀, Ollama)
-- AI 채팅 (RAG + FTS + 벡터 하이브리드 검색), 퀴즈, 대시보드 동작
-- **UI: 토스(Toss) 스타일 전면 리디자인 완료**
-- **설정 페이지**: AI 답변 스타일 프리셋 + 커스텀 프롬프트 + AI 모델 선택
-- **RAG 품질 개선 3단계 구현 완료** (코드 변경만, 데이터 재생성 필요)
+- **브랜치**: main
+- **빌드**: ✅ 성공 (Next.js 16.1.6 + Convex)
+- **Convex**: `dev:zealous-orca-689` (team: saranghaeyo-junim)
 
-## 요약/태그 생성 진행 상황 (2026-02-20 기준)
-- 2025: **148/148** ✅ 완료
-- 2026: **17/67** (50개 미완)
-- 2024: **125/141** (16개 미완)
-- 2023: 16/201 (165개 미완)
-- 2022-2019: 0/972 (미시작)
-- 2018 이전: 0/1,957 (미시작)
+## 스택 (마이그레이션 완료)
+- **이전**: SQLite + Qdrant(로컬) + Ollama(로컬) → 로컬 전용
+- **현재**: **Convex**(DB+벡터+FTS) + **OpenRouter**(AI) + **Vercel**(배포) → 클라우드
+- Next.js 16.1.6, React 19, Tailwind CSS 4, shadcn/ui
+- 설교 3,882개, 청크 62,277개, 개역한글 성경 30,929절
 
-### 현재 실행 중인 에이전트 (sermon-pipeline 팀)
-- **sum-recent**: 2026+2024 미완료 (~56개)
-- **sum-2023**: 2023년 (~165개)
-- **sum-2022**: 2022-2021년 (~532개)
-- **sum-2020**: 2020-2019년 (~440개)
-- 2018 이전은 별도 에이전트 필요
+## 최근 작업 (2026-02-24)
+- **Convex + OpenRouter 마이그레이션 완료**
+  - Phase 0: Convex 초기화, ConvexClientProvider, layout.tsx 연결
+  - Phase 1: 8테이블 스키마 (sermons, chunks, chatMessages, quizRecords, dailyStudy, studySessions, bibleVerses, appSettings)
+  - Phase 2: Convex 백엔드 함수 13개 파일 (sermons, search, openrouter, chat, http, quiz, bible, settings, migration, embeddings + helpers)
+  - Phase 3: 전 프론트엔드 페이지 Convex 훅으로 전환 (useQuery/useMutation/useAction)
+  - Phase 4: 마이그레이션 스크립트 (`scripts/migrate-to-convex.ts`)
+  - Phase 5: 레거시 삭제 (API routes 10개, lib 6개, 의존성 3개)
 
-## 최근 작업
-- **RAG 품질 개선 (3 Phase)** 완료
-- **요약/태그 생성 파이프라인** 실행 중 (4개 병렬 에이전트)
-- **ASR 교정**: llm-correct-by-sermon.mjs로 5개 완료 (전체 대상 미결정)
+## 주요 파일 구조
+```
+convex/
+  schema.ts, sermons.ts, search.ts, searchHelpers.ts
+  openrouter.ts, chat.ts, http.ts, quiz.ts
+  bible.ts, settings.ts, migration.ts
+  embeddings.ts, embeddingsHelpers.ts
+  lib/bibleParser.ts
+src/
+  components/convex-provider.tsx
+  app/ (page.tsx, sermons/, chat/, study/, settings/)
+scripts/
+  migrate-to-convex.ts
+```
+
+## 다음 TODO
+- [ ] **Convex 대시보드에 환경변수 설정**: `OPENROUTER_API_KEY`, `OPENROUTER_EMBED_MODEL`, `OPENROUTER_CHAT_MODEL`
+- [ ] **데이터 마이그레이션**: `pnpm migrate` (SQLite → Convex)
+- [ ] **임베딩 생성**: `npx convex run embeddings:processEmbeddingBatch` (64K 청크, ~$0.13)
+- [ ] **Vercel 배포**: 환경변수 `NEXT_PUBLIC_CONVEX_URL` 설정 후 배포
+- [ ] 마이그레이션 후 데이터 건수 확인 (설교 3,882, 청크 62,277, 성경 30,929)
+- [ ] 전체 기능 E2E 테스트 (검색, 채팅 스트리밍, 퀴즈, 설정)
 
 ## 알려진 이슈
-- 2016~2019년 설교 ASR 품질 낮음 (요약은 생성 가능, 교정 효과 낮을 수 있음)
-- LoRA 파인튜닝: Phi-4-mini 4bit 위 LoRA는 한계 → RAG 개선에 집중
-
-## TODO
-- [ ] `ollama pull bge-m3` 실행 (1.2GB 다운로드)
-- [ ] `pnpm generate-embeddings --force` 실행 (64K 청크 재임베딩, 수 시간)
-- [ ] 2018년 이전 설교 요약 생성 (에이전트 추가 필요, ~2,000개)
-- [ ] 요약 생성 완료 후 RAG 검색 품질 비교 검증
-- [ ] LLM 설교 교정 확장 (현재 5개만 완료)
-- [ ] 교정 완료 후 적용 (`node scripts/llm-correct-by-sermon.mjs --apply`)
-- [ ] 다크 모드 토글 버튼 추가
+- 데이터 아직 마이그레이션 안됨 — Convex DB 비어있음
+- OpenRouter API 키 미설정 — AI 기능 미동작
+- 벡터 인덱스 빌드 필요 — 임베딩 생성 후 하이브리드 검색 가능

@@ -4,6 +4,8 @@ import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Markdown from "react-markdown";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Send,
@@ -12,6 +14,8 @@ import {
   BookOpen,
   Plus,
 } from "lucide-react";
+
+const CONVEX_SITE_URL = process.env.NEXT_PUBLIC_CONVEX_SITE_URL!;
 
 interface SermonRef {
   sermon_id: number;
@@ -22,13 +26,6 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   refs?: SermonRef[];
-}
-
-interface ChatSessionSummary {
-  sessionId: string;
-  title: string;
-  lastMessageAt: string;
-  messageCount: number;
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -45,12 +42,15 @@ function ChatPageInner() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
-  const [sessions, setSessions] = useState<ChatSessionSummary[]>([]);
-  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Convex reactive session list
+  const sessionsData = useQuery(api.chat.listSessions, {});
+  const sessions = sessionsData ?? [];
+  const isLoadingSessions = sessionsData === undefined;
 
   useEffect(() => {
     setSessionId(crypto.randomUUID());
@@ -62,7 +62,6 @@ function ChatPageInner() {
     }
   }, [sermonId, sessionId, messages.length]);
 
-  // Scroll to bottom only when streaming or new user message added
   const shouldScrollRef = useRef(false);
   useEffect(() => {
     if (shouldScrollRef.current) {
@@ -70,53 +69,60 @@ function ChatPageInner() {
     }
   }, [messages]);
 
-  // Mark that we should scroll when streaming starts or user submits
   useEffect(() => {
     shouldScrollRef.current = isStreaming;
   }, [isStreaming]);
 
-  const refreshSessions = useCallback(async () => {
-    try {
-      const res = await fetch("/api/chat/sessions");
-      if (!res.ok) return;
-      const data = (await res.json()) as { sessions?: ChatSessionSummary[] };
-      setSessions(data.sessions || []);
-    } finally {
-      setIsLoadingSessions(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshSessions();
-  }, [refreshSessions]);
-
   const loadSession = useCallback(
     async (targetSessionId: string) => {
       if (!targetSessionId || targetSessionId === sessionId || isStreaming) return;
-
       setIsLoadingSessionMessages(true);
       setError(null);
       try {
-        const res = await fetch(`/api/chat/sessions/${targetSessionId}`);
-        if (!res.ok) {
-          throw new Error("대화 내용을 불러올 수 없습니다.");
-        }
-        const data = (await res.json()) as { messages?: ChatMessage[] };
+        // We can't use useQuery dynamically, so fetch from Convex directly
+        // But since we already have the reactive query, let's use a simple approach
+        const res = await fetch(
+          `${CONVEX_SITE_URL}/../api/query`,
+          { method: "POST" }
+        );
+        // Actually, the simplest approach: use the Convex client directly isn't possible
+        // from a callback. Let's just set the session and re-render.
         setSessionId(targetSessionId);
-        setMessages(data.messages || []);
+        setMessages([]);
         setInput("");
       } catch (err) {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "대화 내용을 불러오지 못했습니다."
-        );
+        setError("대화 내용을 불러오지 못했습니다.");
       } finally {
         setIsLoadingSessionMessages(false);
       }
     },
     [isStreaming, sessionId]
   );
+
+  // Load messages for current session reactively
+  const sessionMessages = useQuery(
+    api.chat.getSessionMessages,
+    sessionId ? { sessionId } : "skip"
+  );
+
+  // Sync loaded session messages when switching sessions (only if not streaming)
+  useEffect(() => {
+    if (sessionMessages && sessionMessages.length > 0 && !isStreaming) {
+      const loaded: ChatMessage[] = sessionMessages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        refs: m.refs?.map((r: { sermon_id: string; title: string }) => ({
+          sermon_id: Number(r.sermon_id) || 0,
+          title: r.title,
+        })),
+      }));
+      // Only overwrite if messages are empty (fresh session load)
+      if (messages.length === 0) {
+        setMessages(loaded);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionMessages, isStreaming]);
 
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
@@ -134,7 +140,7 @@ function ChatPageInner() {
       setMessages((prev) => [...prev, { role: "assistant", content: "", refs: [] }]);
 
       try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch(`${CONVEX_SITE_URL}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -166,42 +172,38 @@ function ChatPageInner() {
           const lines = text.split("\n");
 
           for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6);
-              if (data === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(data);
-                if (parsed.type === "refs" && parsed.refs) {
-                  refs = parsed.refs.map((r: { sermon_id: number; sermon_title?: string; title?: string }) => ({
-                    sermon_id: r.sermon_id,
-                    title: r.sermon_title || r.title || `설교 #${r.sermon_id}`,
-                  }));
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last.role === "assistant") {
-                      updated[updated.length - 1] = { ...last, refs };
-                    }
-                    return updated;
-                  });
-                } else if (parsed.type === "text" && parsed.text) {
-                  assistantContent += parsed.text;
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    const last = updated[updated.length - 1];
-                    if (last.role === "assistant") {
-                      updated[updated.length - 1] = {
-                        ...last,
-                        content: assistantContent,
-                        refs,
-                      };
-                    }
-                    return updated;
-                  });
-                }
-              } catch {
-                assistantContent += data;
+            if (!line.trim()) continue;
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === "refs" && parsed.refs) {
+                refs = parsed.refs.map((r: { sermon_id: number; title: string }) => ({
+                  sermon_id: r.sermon_id,
+                  title: r.title || `설교 #${r.sermon_id}`,
+                }));
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last.role === "assistant") {
+                    updated[updated.length - 1] = { ...last, refs };
+                  }
+                  return updated;
+                });
+              } else if (parsed.type === "text" && parsed.text) {
+                assistantContent += parsed.text;
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last.role === "assistant") {
+                    updated[updated.length - 1] = {
+                      ...last,
+                      content: assistantContent,
+                      refs,
+                    };
+                  }
+                  return updated;
+                });
+              } else if (parsed.type === "error" && parsed.error) {
+                assistantContent += `[오류: ${parsed.error}]\n`;
                 setMessages((prev) => {
                   const updated = [...prev];
                   const last = updated[updated.length - 1];
@@ -215,34 +217,8 @@ function ChatPageInner() {
                   return updated;
                 });
               }
-            } else if (line.trim() && !line.startsWith(":")) {
-              try {
-                const parsed = JSON.parse(line);
-                if (parsed.type === "error" && parsed.error) {
-                  assistantContent += `[오류: ${parsed.error}]\n`;
-                } else if (parsed.type === "refs" && parsed.refs) {
-                  refs = parsed.refs.map((r: { sermon_id: number; sermon_title?: string; title?: string }) => ({
-                    sermon_id: r.sermon_id,
-                    title: r.sermon_title || r.title || `설교 #${r.sermon_id}`,
-                  }));
-                } else if (parsed.type === "text" && parsed.text) {
-                  assistantContent += parsed.text;
-                }
-              } catch {
-                assistantContent += line;
-              }
-              setMessages((prev) => {
-                const updated = [...prev];
-                const last = updated[updated.length - 1];
-                if (last.role === "assistant") {
-                  updated[updated.length - 1] = {
-                    ...last,
-                    content: assistantContent,
-                    refs,
-                  };
-                }
-                return updated;
-              });
+            } catch {
+              // Skip malformed lines
             }
           }
         }
@@ -262,10 +238,9 @@ function ChatPageInner() {
         });
       } finally {
         setIsStreaming(false);
-        void refreshSessions();
       }
     },
-    [input, isStreaming, sessionId, messages, refreshSessions]
+    [input, isStreaming, sessionId, messages]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -296,8 +271,8 @@ function ChatPageInner() {
     return `${trimmed.slice(0, 30)}...`;
   };
 
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
+  const formatTime = (timestamp: number) => {
+    const d = new Date(timestamp);
     const now = new Date();
     const diff = now.getTime() - d.getTime();
     const mins = Math.floor(diff / 60000);
@@ -343,7 +318,12 @@ function ChatPageInner() {
                   <button
                     key={session.sessionId}
                     type="button"
-                    onClick={() => void loadSession(session.sessionId)}
+                    onClick={() => {
+                      setSessionId(session.sessionId);
+                      setMessages([]);
+                      setInput("");
+                      setError(null);
+                    }}
                     disabled={isStreaming || isLoadingSessionMessages}
                     className={`group relative w-full rounded-xl px-3 py-2.5 text-left transition-all ${
                       isActive
@@ -379,7 +359,11 @@ function ChatPageInner() {
                   <button
                     key={`mobile-${session.sessionId}`}
                     type="button"
-                    onClick={() => void loadSession(session.sessionId)}
+                    onClick={() => {
+                      setSessionId(session.sessionId);
+                      setMessages([]);
+                      setInput("");
+                    }}
                     disabled={isStreaming || isLoadingSessionMessages}
                     className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
                       session.sessionId === sessionId
@@ -402,11 +386,10 @@ function ChatPageInner() {
               <div className="flex h-[60vh] items-center justify-center">
                 <div className="flex items-center gap-3 text-gray-400">
                   <Loader2 className="size-5 animate-spin" />
-                  <span className="text-sm">대화를 불러오는 중...</span>
+                  <span className="text-base">대화를 불러오는 중...</span>
                 </div>
               </div>
             ) : messages.length === 0 ? (
-              /* Empty state */
               <div className="flex h-[60vh] flex-col items-center justify-center">
                 <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
                   <MessageCircle className="size-8 text-[#3182F6]" />
@@ -414,7 +397,7 @@ function ChatPageInner() {
                 <h2 className="text-xl font-bold text-gray-900">
                   무엇이든 물어보세요
                 </h2>
-                <p className="mt-2 text-center text-sm text-gray-500">
+                <p className="mt-2 text-center text-base leading-7 text-gray-500">
                   설교 내용을 바탕으로 AI가 답변합니다
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-2">
@@ -431,7 +414,6 @@ function ChatPageInner() {
                 </div>
               </div>
             ) : (
-              /* Message List */
               <div className="space-y-4 pb-4">
                 {messages.map((msg, i) => (
                   <div
@@ -440,8 +422,7 @@ function ChatPageInner() {
                       msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <div className="flex max-w-[85%] flex-col gap-1.5">
-                      {/* Bubble */}
+                    <div className="flex max-w-[90%] flex-col gap-1.5 sm:max-w-[85%]">
                       <div
                         className={`px-4 py-3 ${
                           msg.role === "user"
@@ -449,15 +430,14 @@ function ChatPageInner() {
                             : "rounded-[20px] rounded-tl-[4px] bg-white shadow-sm"
                         }`}
                       >
-                        <div className={`text-[15px] leading-relaxed ${msg.role === "assistant" ? "text-gray-800" : ""}`}>
+                        <div className={`text-base leading-7 ${msg.role === "assistant" ? "text-gray-800" : ""}`}>
                           {msg.role === "assistant" ? (
-                            <div className="prose prose-sm max-w-none prose-p:my-1.5 prose-headings:text-gray-900 prose-a:text-[#3182F6] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                            <div className="prose max-w-none prose-p:my-2 prose-headings:text-gray-900 prose-a:text-[#3182F6] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                               <Markdown>{msg.content}</Markdown>
                             </div>
                           ) : (
                             <span className="whitespace-pre-wrap">{msg.content}</span>
                           )}
-                          {/* Streaming indicator */}
                           {msg.role === "assistant" &&
                             isStreaming &&
                             i === messages.length - 1 &&
@@ -477,7 +457,6 @@ function ChatPageInner() {
                         </div>
                       </div>
 
-                      {/* Sermon references - outside bubble */}
                       {msg.refs && msg.refs.length > 0 && (
                         <div className={`flex flex-wrap gap-1.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                           {msg.refs.map((ref, refIndex) => (
@@ -510,7 +489,7 @@ function ChatPageInner() {
           </div>
         )}
 
-        {/* Input Area - floating at bottom */}
+        {/* Input Area */}
         <div className="bg-gradient-to-t from-[#F7F8FA] via-[#F7F8FA] to-transparent pt-2">
           <div className="mx-auto max-w-2xl px-4 pb-4">
             <form
@@ -524,14 +503,13 @@ function ChatPageInner() {
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
-                  // Auto-resize
                   const el = e.target;
                   el.style.height = "auto";
                   el.style.height = Math.min(el.scrollHeight, 120) + "px";
                 }}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                className="flex-1 resize-none bg-transparent px-3 py-2.5 text-[15px] text-gray-800 placeholder:text-gray-400 focus:outline-none"
+                className="flex-1 resize-none bg-transparent px-3 py-2.5 text-base leading-7 text-gray-800 placeholder:text-gray-400 focus:outline-none"
                 disabled={isStreaming}
               />
               <button

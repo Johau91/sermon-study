@@ -1,13 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Cpu, Loader2, RotateCcw, Settings, Sparkles } from "lucide-react";
-
-interface OllamaModel {
-  name: string;
-  size: number;
-  modified_at: string;
-}
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import { Check, Loader2, RotateCcw, Settings, Sparkles } from "lucide-react";
 
 interface StylePreset {
   id: string;
@@ -71,62 +67,29 @@ const STYLE_PRESETS: StylePreset[] = [
 const DEFAULT_STYLE = "pastor";
 
 export default function SettingsPage() {
+  const settings = useQuery(api.settings.getAll, {});
+  const setSetting = useMutation(api.settings.set);
+
   const [selectedStyle, setSelectedStyle] = useState(DEFAULT_STYLE);
   const [customPrompt, setCustomPrompt] = useState("");
   const [isCustom, setIsCustom] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [models, setModels] = useState<OllamaModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState("sermon-ai");
-  const [modelsLoading, setModelsLoading] = useState(true);
-  const [modelsError, setModelsError] = useState("");
+
+  const loading = settings === undefined;
 
   useEffect(() => {
-    async function loadSettings() {
-      try {
-        const res = await fetch("/api/settings");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.ai_style) {
-          setSelectedStyle(data.ai_style);
-        }
-        if (data.ai_custom_prompt) {
-          setCustomPrompt(data.ai_custom_prompt);
-        }
-        if (data.ai_style === "custom") {
-          setIsCustom(true);
-        }
-        if (data.ai_model) {
-          setSelectedModel(data.ai_model);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    async function loadModels() {
-      try {
-        const res = await fetch("/api/models");
-        if (!res.ok) throw new Error();
-        const data: OllamaModel[] = await res.json();
-        setModels(data);
-      } catch {
-        setModelsError("Ollama에 연결할 수 없습니다.");
-      } finally {
-        setModelsLoading(false);
-      }
-    }
-    loadSettings();
-    loadModels();
-  }, []);
+    if (!settings) return;
+    if (settings.ai_style) setSelectedStyle(settings.ai_style);
+    if (settings.ai_custom_prompt) setCustomPrompt(settings.ai_custom_prompt);
+    if (settings.ai_style === "custom") setIsCustom(true);
+  }, [settings]);
 
   const handleSelectStyle = (styleId: string) => {
     setSelectedStyle(styleId);
     setIsCustom(false);
     const preset = STYLE_PRESETS.find((p) => p.id === styleId);
-    if (preset) {
-      setCustomPrompt(preset.prompt);
-    }
+    if (preset) setCustomPrompt(preset.prompt);
   };
 
   const handleCustomMode = () => {
@@ -143,21 +106,8 @@ export default function SettingsPage() {
     setSaved(false);
     try {
       await Promise.all([
-        fetch("/api/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "ai_style", value: isCustom ? "custom" : selectedStyle }),
-        }),
-        fetch("/api/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "ai_custom_prompt", value: customPrompt }),
-        }),
-        fetch("/api/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ key: "ai_model", value: selectedModel }),
-        }),
+        setSetting({ key: "ai_style", value: isCustom ? "custom" : selectedStyle }),
+        setSetting({ key: "ai_custom_prompt", value: customPrompt }),
       ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -182,62 +132,14 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-[28px] font-bold tracking-tight text-gray-900">
+        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[28px]">
           설정
         </h1>
-        <p className="mt-2 text-[15px] text-gray-500">
+        <p className="mt-2 text-base leading-7 text-gray-500">
           AI 답변 스타일을 선택하거나 직접 프롬프트를 작성하세요.
         </p>
-      </div>
-
-      {/* Model Selection */}
-      <div>
-        <h2 className="mb-4 text-lg font-bold text-gray-900">AI 모델</h2>
-        {modelsLoading ? (
-          <div className="flex items-center gap-2 py-4 text-sm text-gray-400">
-            <Loader2 className="size-4 animate-spin" />
-            모델 목록 불러오는 중...
-          </div>
-        ) : modelsError ? (
-          <div className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
-            {modelsError}
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {models.map((model) => {
-              const isSelected = selectedModel === model.name;
-              const sizeGB = (model.size / 1e9).toFixed(1);
-              return (
-                <button
-                  key={model.name}
-                  type="button"
-                  onClick={() => setSelectedModel(model.name)}
-                  className={`group relative rounded-2xl p-5 text-left transition-all active:scale-[0.98] ${
-                    isSelected
-                      ? "bg-[#3182F6]/5 ring-2 ring-[#3182F6] shadow-sm"
-                      : "bg-white ring-1 ring-black/[0.04] shadow-sm hover:shadow-md hover:ring-[#3182F6]/20"
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="absolute right-4 top-4 flex size-6 items-center justify-center rounded-full bg-[#3182F6]">
-                      <Check className="size-3.5 text-white" />
-                    </div>
-                  )}
-                  <Cpu className={`size-6 ${isSelected ? "text-[#3182F6]" : "text-gray-400"}`} />
-                  <h3 className={`mt-3 text-[15px] font-bold ${isSelected ? "text-[#3182F6]" : "text-gray-900"}`}>
-                    {model.name}
-                  </h3>
-                  <p className="mt-1.5 text-sm text-gray-500">
-                    {sizeGB} GB
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {/* Style Presets */}
@@ -263,10 +165,10 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="text-2xl">{preset.emoji}</div>
-                <h3 className={`mt-3 text-[15px] font-bold ${isSelected ? "text-[#3182F6]" : "text-gray-900"}`}>
+                <h3 className={`mt-3 text-base font-bold ${isSelected ? "text-[#3182F6]" : "text-gray-900"}`}>
                   {preset.name}
                 </h3>
-                <p className="mt-1.5 text-sm text-gray-500 leading-relaxed">
+                <p className="mt-1.5 text-sm leading-6 text-gray-500">
                   {preset.description}
                 </p>
               </button>
@@ -282,7 +184,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={handleCustomMode}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isCustom
                 ? "bg-[#3182F6]/10 text-[#3182F6]"
                 : "bg-gray-100 text-gray-500 hover:bg-gray-200"
@@ -293,8 +195,8 @@ export default function SettingsPage() {
           </button>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
-          <p className="mb-3 text-xs text-gray-400">
-            AI가 답변할 때 사용하는 스타일 지시문입니다. 프리셋을 선택하면 자동으로 채워지며, 자유롭게 수정할 수 있습니다.
+          <p className="mb-3 text-sm leading-6 text-gray-400">
+            AI가 답변할 때 사용하는 스타일 지시문입니다.
           </p>
           <textarea
             value={customPrompt}
@@ -307,18 +209,18 @@ export default function SettingsPage() {
             }}
             rows={8}
             placeholder="AI 답변 스타일 프롬프트를 입력하세요..."
-            className="w-full resize-none rounded-xl bg-gray-50 p-4 text-[14px] leading-relaxed text-gray-700 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30 transition-all"
+            className="w-full resize-none rounded-xl bg-gray-50 p-4 text-base leading-7 text-gray-700 placeholder:text-gray-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
           />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 rounded-xl bg-[#3182F6] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.97]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3182F6] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.97] sm:w-auto"
         >
           {saving ? (
             <Loader2 className="size-4 animate-spin" />
@@ -332,7 +234,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={handleReset}
-          className="flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97]"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97] sm:w-auto"
         >
           <RotateCcw className="size-4" />
           기본값으로

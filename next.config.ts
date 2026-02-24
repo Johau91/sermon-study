@@ -1,7 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  serverExternalPackages: ["better-sqlite3", "sqlite-vec"],
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
