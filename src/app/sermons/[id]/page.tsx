@@ -180,8 +180,9 @@ export default function SermonDetailPage() {
 
   const tags = sermon.tags ? sermon.tags.split(",").map((t) => t.trim()) : [];
   const youtubeUrl = `https://www.youtube.com/watch?v=${sermon.youtubeId}`;
-  const displayTranscript =
-    sermon.transcriptCorrected || sermon.transcriptRaw || "";
+  const displayTranscript = (sermon.transcriptCorrected || sermon.transcriptRaw || "")
+    .replace(/악독합니다/g, "합독합니다")
+    .replace(/합복합니다/g, "합독합니다");
 
   const dateStr = sermon.publishedAt
     ? new Date(sermon.publishedAt).toLocaleDateString("ko-KR", {

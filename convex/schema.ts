@@ -13,10 +13,17 @@ export default defineSchema({
     tags: v.optional(v.string()),
     patternVersion: v.optional(v.number()),
     llmCorrectionVersion: v.optional(v.number()),
+    hasTranscript: v.optional(v.boolean()),
   })
     .index("by_originalId", ["originalId"])
     .index("by_youtubeId", ["youtubeId"])
     .searchIndex("search_title", { searchField: "title" }),
+
+  transcripts: defineTable({
+    sermonId: v.id("sermons"),
+    transcriptRaw: v.optional(v.string()),
+    transcriptCorrected: v.optional(v.string()),
+  }).index("by_sermonId", ["sermonId"]),
 
   chunks: defineTable({
     sermonId: v.id("sermons"),

@@ -14,19 +14,24 @@ export const getUncorrectedLlmPage = internalQuery({
       .query("sermons")
       .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const uncorrected = result.page
-      .filter(
-        (s) =>
-          s.transcriptCorrected &&
-          s.transcriptCorrected.trim().length > 0 &&
-          (s.llmCorrectionVersion ?? 0) !== LLM_CORRECTION_VERSION
-      )
-      .map((s) => ({
-        _id: s._id,
-        originalId: s.originalId,
-        title: s.title,
-        transcriptCorrected: s.transcriptCorrected!,
-      }));
+    const uncorrected = [];
+    for (const s of result.page) {
+      if ((s.llmCorrectionVersion ?? 0) === LLM_CORRECTION_VERSION) continue;
+
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const corrected = t?.transcriptCorrected ?? s.transcriptCorrected;
+      if (corrected && corrected.trim().length > 0) {
+        uncorrected.push({
+          _id: s._id,
+          originalId: s.originalId,
+          title: s.title,
+          transcriptCorrected: corrected,
+        });
+      }
+    }
 
     return {
       sermons: uncorrected,
@@ -65,7 +70,7 @@ export const getBibleVerses = internalQuery({
   },
 });
 
-/** Save LLM-corrected text, re-chunk. */
+/** Save LLM-corrected text to transcripts table, re-chunk. */
 export const saveLlmCorrection = internalMutation({
   args: {
     sermonId: v.id("sermons"),
@@ -73,8 +78,23 @@ export const saveLlmCorrection = internalMutation({
     correctedText: v.string(),
   },
   handler: async (ctx, args) => {
+    // Write to transcripts table
+    const existing = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", args.sermonId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { transcriptCorrected: args.correctedText });
+    } else {
+      await ctx.db.insert("transcripts", {
+        sermonId: args.sermonId,
+        transcriptCorrected: args.correctedText,
+      });
+    }
+
     await ctx.db.patch(args.sermonId, {
-      transcriptCorrected: args.correctedText,
+      hasTranscript: true,
       llmCorrectionVersion: LLM_CORRECTION_VERSION,
     });
 
@@ -126,7 +146,12 @@ export const llmCorrectionProgressPage = internalQuery({
     let total = 0;
     let corrected = 0;
     for (const s of result.page) {
-      if (s.transcriptCorrected && s.transcriptCorrected.trim().length > 0) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const hasCorrected = t?.transcriptCorrected ?? s.transcriptCorrected;
+      if (hasCorrected && hasCorrected.trim().length > 0) {
         total++;
         if ((s.llmCorrectionVersion ?? 0) === LLM_CORRECTION_VERSION) {
           corrected++;

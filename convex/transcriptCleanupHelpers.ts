@@ -13,15 +13,23 @@ export const getAllSermonsPagePublic = query({
       .query("sermons")
       .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const sermons = result.page
-      .filter((s) => s.transcriptRaw && s.transcriptRaw.trim().length > 0)
-      .map((s) => ({
-        _id: s._id,
-        originalId: s.originalId,
-        title: s.title,
-        transcriptRaw: s.transcriptRaw!,
-        transcriptCorrected: s.transcriptCorrected ?? null,
-      }));
+    const sermons = [];
+    for (const s of result.page) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const raw = t?.transcriptRaw ?? s.transcriptRaw;
+      if (raw && raw.trim().length > 0) {
+        sermons.push({
+          _id: s._id,
+          originalId: s.originalId,
+          title: s.title,
+          transcriptRaw: raw,
+          transcriptCorrected: t?.transcriptCorrected ?? s.transcriptCorrected ?? null,
+        });
+      }
+    }
 
     return {
       sermons,
@@ -42,16 +50,24 @@ export const getAllSermonsPage = internalQuery({
       .query("sermons")
       .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const sermons = result.page
-      .filter((s) => s.transcriptRaw && s.transcriptRaw.trim().length > 0)
-      .map((s) => ({
-        _id: s._id,
-        originalId: s.originalId,
-        title: s.title,
-        transcriptRaw: s.transcriptRaw!,
-        transcriptCorrected: s.transcriptCorrected ?? null,
-        patternVersion: s.patternVersion ?? 0,
-      }));
+    const sermons = [];
+    for (const s of result.page) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const raw = t?.transcriptRaw ?? s.transcriptRaw;
+      if (raw && raw.trim().length > 0) {
+        sermons.push({
+          _id: s._id,
+          originalId: s.originalId,
+          title: s.title,
+          transcriptRaw: raw,
+          transcriptCorrected: t?.transcriptCorrected ?? s.transcriptCorrected ?? null,
+          patternVersion: s.patternVersion ?? 0,
+        });
+      }
+    }
 
     return {
       sermons,
@@ -73,7 +89,12 @@ export const nasAudioCountPage = internalQuery({
       .paginate({ numItems: args.numItems, cursor: args.cursor });
     let count = 0;
     for (const s of result.page) {
-      if (s.transcriptRaw && s.transcriptRaw.startsWith("[nas-audio]")) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const raw = t?.transcriptRaw ?? s.transcriptRaw;
+      if (raw && raw.startsWith("[nas-audio]")) {
         count++;
       }
     }
@@ -95,7 +116,11 @@ export const correctionProgressPage = internalQuery({
     let corrected = 0;
     for (const s of result.page) {
       total++;
-      if (s.transcriptCorrected !== undefined && s.transcriptCorrected !== null) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      if ((t?.transcriptCorrected ?? s.transcriptCorrected) != null) {
         corrected++;
       }
     }
@@ -122,20 +147,23 @@ export const getUncorrectedPage = internalQuery({
       .query("sermons")
       .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const uncorrected = result.page
-      .filter(
-        (s) =>
-          s.transcriptRaw &&
-          s.transcriptRaw.trim().length > 0 &&
-          (s.transcriptCorrected === undefined ||
-            s.transcriptCorrected === null)
-      )
-      .map((s) => ({
-        _id: s._id,
-        originalId: s.originalId,
-        title: s.title,
-        transcriptRaw: s.transcriptRaw!,
-      }));
+    const uncorrected = [];
+    for (const s of result.page) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const raw = t?.transcriptRaw ?? s.transcriptRaw;
+      const corrected = t?.transcriptCorrected ?? s.transcriptCorrected;
+      if (raw && raw.trim().length > 0 && corrected == null) {
+        uncorrected.push({
+          _id: s._id,
+          originalId: s.originalId,
+          title: s.title,
+          transcriptRaw: raw,
+        });
+      }
+    }
 
     return {
       sermons: uncorrected,
@@ -147,7 +175,7 @@ export const getUncorrectedPage = internalQuery({
 
 /**
  * Save corrected transcript and re-chunk the sermon.
- * Deletes old chunks, creates new ones (without embeddings — those are regenerated separately).
+ * Writes to transcripts table, sets hasTranscript flag on sermon.
  */
 export const applyCorrection = internalMutation({
   args: {
@@ -157,9 +185,23 @@ export const applyCorrection = internalMutation({
     patternVersion: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    // Save corrected transcript (preserve original in transcriptRaw)
+    // Save corrected transcript to transcripts table
+    const existing = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", args.sermonId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { transcriptCorrected: args.correctedText });
+    } else {
+      await ctx.db.insert("transcripts", {
+        sermonId: args.sermonId,
+        transcriptCorrected: args.correctedText,
+      });
+    }
+
     await ctx.db.patch(args.sermonId, {
-      transcriptCorrected: args.correctedText,
+      hasTranscript: true,
       patternVersion: args.patternVersion ?? PATTERN_VERSION,
     });
 
@@ -201,14 +243,22 @@ export const getNasAudioPage = internalQuery({
       .query("sermons")
       .paginate({ numItems: args.numItems, cursor: args.cursor });
 
-    const nasSermons = result.page
-      .filter((s) => s.transcriptRaw && s.transcriptRaw.startsWith("[nas-audio]"))
-      .map((s) => ({
-        _id: s._id,
-        originalId: s.originalId,
-        title: s.title,
-        transcriptRaw: s.transcriptRaw!,
-      }));
+    const nasSermons = [];
+    for (const s of result.page) {
+      const t = await ctx.db
+        .query("transcripts")
+        .withIndex("by_sermonId", (q) => q.eq("sermonId", s._id))
+        .first();
+      const raw = t?.transcriptRaw ?? s.transcriptRaw;
+      if (raw && raw.startsWith("[nas-audio]")) {
+        nasSermons.push({
+          _id: s._id,
+          originalId: s.originalId,
+          title: s.title,
+          transcriptRaw: raw,
+        });
+      }
+    }
 
     return {
       sermons: nasSermons,
@@ -220,8 +270,7 @@ export const getNasAudioPage = internalQuery({
 
 /**
  * Save a Whisper transcript for a NAS audio sermon.
- * Overwrites transcriptRaw, applies ASR corrections → transcriptCorrected,
- * deletes old chunks, and re-chunks.
+ * Writes to transcripts table, applies ASR corrections, re-chunks.
  */
 export const saveNasTranscript = internalMutation({
   args: {
@@ -230,11 +279,29 @@ export const saveNasTranscript = internalMutation({
     rawTranscript: v.string(),
   },
   handler: async (ctx, args) => {
-    // Overwrite transcriptRaw with actual transcript
     const corrected = applyAsrCorrections(args.rawTranscript);
+
+    // Upsert into transcripts table
+    const existing = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", args.sermonId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        transcriptRaw: args.rawTranscript,
+        transcriptCorrected: corrected,
+      });
+    } else {
+      await ctx.db.insert("transcripts", {
+        sermonId: args.sermonId,
+        transcriptRaw: args.rawTranscript,
+        transcriptCorrected: corrected,
+      });
+    }
+
     await ctx.db.patch(args.sermonId, {
-      transcriptRaw: args.rawTranscript,
-      transcriptCorrected: corrected,
+      hasTranscript: true,
       patternVersion: PATTERN_VERSION,
     });
 

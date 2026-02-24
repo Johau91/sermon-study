@@ -17,6 +17,12 @@ type SermonRow = {
   transcriptRaw: string;
 };
 
+type TranscriptMigrateItem = {
+  sermonId: Id<"sermons">;
+  transcriptRaw?: string;
+  transcriptCorrected?: string;
+};
+
 /**
  * Self-scheduling batch action that applies regex-based ASR corrections
  * to sermon transcripts. Writes corrected text to `transcriptCorrected`
@@ -209,7 +215,7 @@ export const progress = action({
       const page: { total: number; corrected: number; continueCursor: string; isDone: boolean } =
         await ctx.runQuery(
           internal.transcriptCleanupHelpers.correctionProgressPage,
-          { numItems: 100, cursor }
+          { numItems: 20, cursor }
         );
       total += page.total;
       corrected += page.corrected;
@@ -290,3 +296,56 @@ export const nasAudioCount = action({
     return { nasAudioCount: count };
   },
 });
+
+/**
+ * Self-scheduling migration: copies transcript data from sermons → transcripts table.
+ * Run: npx convex run transcriptCleanup:migrateTranscripts
+ */
+export const migrateTranscripts = action({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    totalSoFar: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ migrated: number; done: boolean }> => {
+    let cursor: string | null = args.cursor ?? null;
+    let totalMigrated = args.totalSoFar ?? 0;
+    const PAGES_PER_RUN = 10;
+    const MIGRATION_PAGE_SIZE = 50;
+
+    for (let i = 0; i < PAGES_PER_RUN; i++) {
+      const page: {
+        sermons: TranscriptMigrateItem[];
+        continueCursor: string;
+        isDone: boolean;
+      } = await ctx.runQuery(internal.migration.migrateTranscriptsPage, {
+        numItems: MIGRATION_PAGE_SIZE,
+        cursor,
+      });
+
+      if (page.sermons.length > 0) {
+        const migrated: number = await ctx.runMutation(
+          internal.migration.migrateTranscriptsBatch,
+          { batch: page.sermons }
+        );
+        totalMigrated += migrated;
+        console.log(`Migrated ${migrated} transcripts (total: ${totalMigrated})`);
+      }
+
+      cursor = page.continueCursor;
+
+      if (page.isDone) {
+        console.log(`Migration complete: ${totalMigrated} transcripts migrated.`);
+        return { migrated: totalMigrated, done: true };
+      }
+    }
+
+    console.log(`Scheduling next batch (migrated so far: ${totalMigrated})`);
+    await ctx.scheduler.runAfter(500, api.transcriptCleanup.migrateTranscripts, {
+      cursor,
+      totalSoFar: totalMigrated,
+    });
+
+    return { migrated: totalMigrated, done: false };
+  },
+});
+

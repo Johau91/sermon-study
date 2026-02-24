@@ -13,11 +13,12 @@
 - 설교 3,882개, 청크 ~61,589개, 개역한글 성경 30,929절
 
 ## 최근 작업 (2026-02-25)
-- **비슷한 설교 추천 + 본문 검색 하이라이트**
-  - `convex/similar.ts`: summary 임베딩 → 벡터 유사도 기반 3개 추천 액션
-  - `src/components/similar-sermons.tsx`: 추천 카드 UI (제목+요약+태그, 클릭→이동)
-  - `src/components/transcript-search.tsx`: 본문 텍스트 검색, 하이라이트, ↑/↓ 매치 네비게이션
-  - 설교 상세 페이지에 두 컴포넌트 통합
+- **transcripts 테이블 분리 (대역폭 최적화) — 완료**
+  - `transcripts` 테이블 추가 (sermonId, transcriptRaw, transcriptCorrected)
+  - 모든 read/write → transcripts 테이블 사용 (sermon 필드에 fallback)
+  - 마이그레이션 완료: 3882개 설교의 transcript 데이터 → transcripts 테이블 복사됨
+  - `hasTranscript` 플래그 sermons 테이블에 추가
+  - **효과**: list, recent, listTags 등 목록 쿼리에서 ~60KB/건 절감
 
 ## 주요 파일 구조
 ```
@@ -26,7 +27,9 @@ convex/
   openrouter.ts, chat.ts, http.ts, quiz.ts
   bible.ts, settings.ts, migration.ts
   embeddings.ts, embeddingsHelpers.ts
-  lib/bibleParser.ts
+  transcriptCleanup.ts, transcriptCleanupHelpers.ts
+  llmCorrectionHelpers.ts
+  lib/bibleParser.ts, lib/asrPatterns.ts
 src/
   components/convex-provider.tsx, theme-provider.tsx, nav-bar.tsx
   lib/preferences.ts
@@ -36,9 +39,10 @@ scripts/
 ```
 
 ## 다음 TODO
-- [ ] `python3 scripts/nas_whisper_convex.py --limit 2` 테스트 전사 실행
-- [ ] 전체 115개 NAS 음원 전사 실행
-- [ ] 전체 기능 E2E 테스트
+- [ ] Vercel 재배포 (프론트엔드 변경 없지만 확인용)
+- [ ] Convex 대시보드 → Database Bandwidth 감소 확인
+- [ ] (향후) sermons 테이블에서 transcriptRaw/transcriptCorrected 필드 데이터 정리
 
 ## 알려진 이슈
 - 마이그레이션 스크립트 재실행 시 중복 데이터 생성됨 — 이미 데이터가 있는지 확인 필요
+- sermons 테이블에 아직 구 transcript 데이터 남아있음 (fallback용, 대역폭 절감 효과는 transcripts 테이블 분리로 이미 달성)
