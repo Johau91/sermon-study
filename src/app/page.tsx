@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const sermons = useQuery(api.sermons.list, { limit: 4 });
+  const sermons = useQuery(api.sermons.recent, { limit: 4 });
   const totalCount = useQuery(api.sermons.totalCount, {});
   const quizStats = useQuery(api.quiz.getStats, {});
 

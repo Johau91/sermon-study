@@ -2,18 +2,22 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Search, Loader2, BookOpen } from "lucide-react";
 
 export default function SermonsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const sermons = useQuery(api.sermons.list, debouncedSearch.trim() ? { search: debouncedSearch.trim(), limit: 50 } : { limit: 50 });
 
-  const loading = sermons === undefined;
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.sermons.list,
+    debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {},
+    { initialNumItems: 30 }
+  );
 
-  // Debounce search
+  const loading = status === "LoadingFirstPage";
+
   const debounceRef = useMemo(() => {
     let timer: ReturnType<typeof setTimeout>;
     return (value: string) => {
@@ -26,8 +30,6 @@ export default function SermonsPage() {
     setSearchQuery(value);
     debounceRef(value);
   };
-
-  const filteredSermons = sermons ?? [];
 
   return (
     <div className="space-y-6">
@@ -46,7 +48,7 @@ export default function SermonsPage() {
         <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          placeholder="설교 제목, 태그로 검색..."
+          placeholder="설교 제목으로 검색..."
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
           className="w-full rounded-xl bg-white py-3.5 pl-11 pr-4 text-base text-gray-800 shadow-sm ring-1 ring-black/[0.04] placeholder:text-gray-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
@@ -58,7 +60,7 @@ export default function SermonsPage() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="size-6 animate-spin text-[#3182F6]" />
         </div>
-      ) : filteredSermons.length === 0 ? (
+      ) : results.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl bg-white py-16 text-center shadow-sm ring-1 ring-black/[0.04]">
           <div className="flex size-14 items-center justify-center rounded-2xl bg-gray-100">
             <BookOpen className="size-7 text-gray-400" />
@@ -74,12 +76,12 @@ export default function SermonsPage() {
       ) : (
         <>
           <p className="text-sm font-medium text-gray-500">
-            {filteredSermons.length}개의 설교
+            {results.length}개의 설교
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredSermons.map((sermon) => {
+            {results.map((sermon) => {
               const tags = sermon.tags
-                ? sermon.tags.split(",").map((t) => t.trim())
+                ? sermon.tags.split(",").map((t: string) => t.trim())
                 : [];
               return (
                 <Link key={sermon._id} href={`/sermons/${sermon.originalId}`}>
@@ -106,7 +108,7 @@ export default function SermonsPage() {
                     )}
                     {tags.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1.5">
-                        {tags.map((tag, index) => (
+                        {tags.map((tag: string, index: number) => (
                           <span
                             key={`${tag}-${index}`}
                             className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
@@ -121,6 +123,23 @@ export default function SermonsPage() {
               );
             })}
           </div>
+
+          {/* Load More */}
+          {status === "CanLoadMore" && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={() => loadMore(30)}
+                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-black/[0.04] transition-all hover:bg-gray-50 active:scale-[0.97]"
+              >
+                더 보기
+              </button>
+            </div>
+          )}
+          {status === "LoadingMore" && (
+            <div className="flex justify-center pt-2">
+              <Loader2 className="size-5 animate-spin text-[#3182F6]" />
+            </div>
+          )}
         </>
       )}
     </div>

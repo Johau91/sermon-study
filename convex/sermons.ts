@@ -1,19 +1,42 @@
 import { query, mutation } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 export const list = query({
   args: {
+    paginationOpts: paginationOptsValidator,
     search: v.optional(v.string()),
-    limit: v.optional(v.number()),
-    cursor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (args.search && args.search.trim()) {
       const results = await ctx.db
         .query("sermons")
         .withSearchIndex("search_title", (q) => q.search("title", args.search!))
-        .take(args.limit ?? 100);
-      return results.map((s) => ({
+        .take(100);
+      return {
+        page: results.map((s) => ({
+          _id: s._id,
+          originalId: s.originalId,
+          youtubeId: s.youtubeId,
+          title: s.title,
+          publishedAt: s.publishedAt,
+          summary: s.summary,
+          tags: s.tags,
+          _creationTime: s._creationTime,
+        })),
+        isDone: true,
+        continueCursor: "",
+      };
+    }
+
+    const result = await ctx.db
+      .query("sermons")
+      .order("desc")
+      .paginate(args.paginationOpts);
+
+    return {
+      ...result,
+      page: result.page.map((s) => ({
         _id: s._id,
         originalId: s.originalId,
         youtubeId: s.youtubeId,
@@ -22,24 +45,8 @@ export const list = query({
         summary: s.summary,
         tags: s.tags,
         _creationTime: s._creationTime,
-      }));
-    }
-
-    const sermons = await ctx.db
-      .query("sermons")
-      .order("desc")
-      .take(args.limit ?? 50);
-
-    return sermons.map((s) => ({
-      _id: s._id,
-      originalId: s.originalId,
-      youtubeId: s.youtubeId,
-      title: s.title,
-      publishedAt: s.publishedAt,
-      summary: s.summary,
-      tags: s.tags,
-      _creationTime: s._creationTime,
-    }));
+      })),
+    };
   },
 });
 
@@ -132,6 +139,23 @@ export const updateTranscript = mutation({
     }
 
     return { chunkCount: chunks.length };
+  },
+});
+
+// Lightweight query for dashboard (only recent N sermons, no transcripts)
+export const recent = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const sermons = await ctx.db
+      .query("sermons")
+      .order("desc")
+      .take(args.limit ?? 4);
+    return sermons.map((s) => ({
+      _id: s._id,
+      originalId: s.originalId,
+      title: s.title,
+      publishedAt: s.publishedAt,
+    }));
   },
 });
 

@@ -1,0 +1,13 @@
+data/
+models/
+adapters/
+adapters_v1/
+fused_model/
+fused_model_f16/
+fused_model_fp16/
+llama.cpp/
+*.gguf
+*.db
+reports/
+.venv/
+.claude/
