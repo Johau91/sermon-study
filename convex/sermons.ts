@@ -1,4 +1,5 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, action, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
@@ -232,7 +233,30 @@ export const recent = query({
   },
 });
 
-export const listTags = query({
+// Internal paginated query — each call gets its own 16MB read budget
+export const _listTagsPage = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query("sermons")
+      .paginate({ numItems: 100, cursor: args.cursor ?? undefined } as any);
+    const tags: string[] = [];
+    for (const s of result.page) {
+      if (!s.tags) continue;
+      for (const raw of s.tags.split(",")) {
+        const t = raw.trim();
+        if (t) tags.push(t);
+      }
+    }
+    return {
+      tags,
+      continueCursor: result.continueCursor,
+      isDone: result.isDone,
+    };
+  },
+});
+
+export const listTags = action({
   args: {},
   handler: async (ctx) => {
     const tagCounts = new Map<string, number>();
@@ -240,15 +264,10 @@ export const listTags = query({
     let isDone = false;
 
     while (!isDone) {
-      const page: any = await ctx.db
-        .query("sermons")
-        .paginate({ numItems: 200, cursor: cursor ?? undefined } as any);
-      for (const s of page.page) {
-        if (!s.tags) continue;
-        for (const raw of (s.tags as string).split(",")) {
-          const tag = raw.trim();
-          if (tag) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-        }
+      const page: { tags: string[]; continueCursor: string; isDone: boolean } =
+        await ctx.runQuery(internal.sermons._listTagsPage, { cursor });
+      for (const tag of page.tags) {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       }
       isDone = page.isDone;
       cursor = page.continueCursor;

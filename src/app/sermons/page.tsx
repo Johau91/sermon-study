@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { usePaginatedQuery, useQuery } from "convex/react";
+import { usePaginatedQuery, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Search, Loader2, BookOpen, CheckCircle2 } from "lucide-react";
 import {
@@ -23,7 +23,12 @@ export default function SermonsPage() {
     { initialNumItems: 30 }
   );
 
-  const tags = useQuery(api.sermons.listTags, {});
+  const [tags, setTags] = useState<{ tag: string; count: number }[] | null>(null);
+  const listTagsAction = useAction(api.sermons.listTags);
+
+  useEffect(() => {
+    listTagsAction({}).then(setTags).catch(() => {});
+  }, [listTagsAction]);
 
   const loading = status === "LoadingFirstPage";
 
