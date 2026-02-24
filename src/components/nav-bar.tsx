@@ -8,7 +8,10 @@ import {
   MessageCircle,
   GraduationCap,
   Settings,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 
 const navItems = [
   { href: "/", label: "홈", icon: Home },
@@ -20,6 +23,7 @@ const navItems = [
 
 export function NavBar() {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,6 +56,14 @@ export function NavBar() {
               </Link>
             );
           })}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex min-h-10 min-w-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            aria-label="테마 전환"
+          >
+            {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </button>
         </nav>
       </div>
     </header>

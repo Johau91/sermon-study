@@ -1,6 +1,8 @@
 import path from "node:path";
 import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
+
+const QDRANT_URL = process.env.QDRANT_URL || "http://127.0.0.1:6333";
+const QDRANT_COLLECTION = "sermon_chunks";
 
 /* ── CLI args ─────────────────────────────────────────────── */
 const DRY_RUN = process.argv.includes("--dry-run");
@@ -8,11 +10,21 @@ const VERBOSE = process.argv.includes("--verbose");
 const SERMON_ID = Number(
   process.argv.find((a) => a.startsWith("--sermon="))?.split("=")[1] || "0"
 );
+// 옛날 설교만: --before=2020 (published_at < '2020-01-01' 인 설교만)
+const BEFORE_YEAR = process.argv.find((a) => a.startsWith("--before="))?.split("=")[1] || null;
 
 /* ── Database ─────────────────────────────────────────────── */
 const DB_PATH = path.join(process.cwd(), "data", "sermons.db");
 const db = new Database(DB_PATH);
-sqliteVec.load(db);
+
+/* ── Qdrant helpers ─────────────────────────────────────────── */
+async function qdrantDeletePoints(ids) {
+  await fetch(`${QDRANT_URL}/collections/${QDRANT_COLLECTION}/points/delete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ points: ids }),
+  });
+}
 
 /* ── Book aliases (mirrors src/lib/bible.ts) ─────────────── */
 const BOOK_ALIASES = {
@@ -66,6 +78,31 @@ const ASR_CORRECTIONS = [
   [/주\s*님/g, "주님"],
   [/그리스\s*도/g, "그리스도"],
   [/성\s*령/g, "성령"],
+
+  // Common ASR misrecognitions (theology/Bible terms)
+  [/일법/g, "율법"],
+  [/하느님/g, "하나님"],
+  [/안식이를/g, "안식일을"],
+  [/안식이가/g, "안식일이"],
+  [/안식이에/g, "안식일에"],
+  [/가늠하지/g, "간음하지"],
+  [/두석질/g, "도적질"],
+  [/사신하지/g, "살인하지"],
+  [/망령띵/g, "망령되이"],
+  [/보좰/g, "보좌"],
+  [/아맨/g, "아멘"],
+  [/알렐루야/g, "할렐루야"],
+  [/빌리바/g, "빌립"],
+  [/빌리비/g, "빌립"],
+  [/과위똥/g, "바윗돌"],
+  [/의료우/g, "의로우"],
+  [/의료음/g, "의로움"],
+  [/정주한/g, "정죄한"],
+  [/초소가/g, "처소가"],
+  [/초소를/g, "처소를"],
+  [/초소는/g, "처소는"],
+  [/거쳐올/g, "거할"],
+  [/거쳐가/g, "거처가"],
 
   // Common worship/theology terms
   [/예배요/g, "옛 뱀이요"],
@@ -352,9 +389,17 @@ function main() {
   }
   console.log("");
 
-  const sermons = SERMON_ID > 0
-    ? db.prepare("SELECT id, title, transcript_raw FROM sermons WHERE id = ?").all(SERMON_ID)
-    : db.prepare("SELECT id, title, transcript_raw FROM sermons ORDER BY id ASC").all();
+  let sermons;
+  if (SERMON_ID > 0) {
+    sermons = db.prepare("SELECT id, title, transcript_raw FROM sermons WHERE id = ?").all(SERMON_ID);
+  } else if (BEFORE_YEAR) {
+    sermons = db.prepare(
+      "SELECT id, title, transcript_raw FROM sermons WHERE published_at < ? ORDER BY id ASC"
+    ).all(`${BEFORE_YEAR}-01-01`);
+    console.log(`Filtering sermons before ${BEFORE_YEAR}: ${sermons.length} found\n`);
+  } else {
+    sermons = db.prepare("SELECT id, title, transcript_raw FROM sermons ORDER BY id ASC").all();
+  }
   const selectChunkIds = db.prepare("SELECT id FROM chunks WHERE sermon_id = ? ORDER BY id");
   const deleteChunks = db.prepare("DELETE FROM chunks WHERE sermon_id = ?");
   const updateTranscript = db.prepare("UPDATE sermons SET transcript_raw = ? WHERE id = ?");
@@ -396,14 +441,12 @@ function main() {
 
         if (!DRY_RUN && hasChanges) {
           const oldChunkIds = selectChunkIds.all(sermon.id).map((r) => Number(r.id));
-          if (oldChunkIds.length > 0) {
-            const placeholders = oldChunkIds.map(() => "?").join(",");
-            db.prepare(`DELETE FROM vec_chunks WHERE chunk_id IN (${placeholders})`).run(...oldChunkIds);
-          }
           deleteChunks.run(sermon.id);
           updateTranscript.run(corrected, sermon.id);
           const chunks = chunkText(corrected);
           for (const c of chunks) insertChunk.run(sermon.id, c.index, c.content);
+          // Delete old vectors from Qdrant (fire-and-forget, non-blocking)
+          if (oldChunkIds.length > 0) qdrantDeletePoints(oldChunkIds).catch(() => null);
         }
 
         totalUpdated += hasChanges ? 1 : 0;

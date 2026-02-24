@@ -50,7 +50,7 @@ export default function SimilarSermons({ sermonId, summaryText }: Props) {
       </div>
       <div className="border-t border-border">
         {loading ? (
-          <div className="flex items-center justify-center py-6">
+          <div className="flex items-center justify-center py-6" role="status" aria-label="로딩 중">
             <Loader2 className="size-4 animate-spin text-subtle" />
           </div>
         ) : (

@@ -36,7 +36,6 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen3:8b";
 const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || "8192");
 const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || "64");
 const OLLAMA_LOW_VRAM = process.env.OLLAMA_LOW_VRAM !== "false";
-const AGENT_COUNT = 12;
 
 const DB_PATH = path.join(process.cwd(), "data", "sermons.db");
 const db = new Database(DB_PATH);
@@ -106,44 +105,23 @@ function getBibleContext(text) {
   return lines.length ? lines.join("\n") : "";
 }
 
-const AGENT_TEAM = [
-  ["A1 입력정리", "줄바꿈/공백/반복 구두점을 최소 정리. 의미 변경 금지."],
-  ["A2 ASR오류교정", "명백한 음성인식 오탈자만 교정."],
-  ["A3 신학용어", "기독교/신학 용어 오인식을 교정."],
-  ["A4 성경권명정리", "성경 책 이름/장절 표기 오류를 표준화."],
-  ["A5 개역한글정합", "개역한글과 명백히 어긋나는 성경 표현만 교정."],
-  ["A6 맥락일관성", "앞뒤 문맥과 어긋난 단어만 최소 교정."],
-  ["A7 문장부호", "필요 최소한의 문장부호/띄어쓰기만 교정."],
-  ["A8 구어체유지", "설교 구어체 톤 유지, 과도한 문어체화 금지."],
-  ["A9 과수정방지", "원문 정보 손실/추가 여부 점검 후 보수적으로 복원."],
-  ["A10 용어일관", "같은 용어 표기를 전체에서 일치시킴."],
-  ["A11 안전검수", "의미 변경/추가/삭제 금지 규칙 위반분 제거."],
-  ["A12 최종확정", "최종 교정본만 출력. 설명/마크다운 금지."],
-];
-
 let tmpCounter = 0;
 
-function buildPrompt({ roleName, roleRule, originalText, currentText, bibleCtx }) {
-  return `당신은 "${roleName}" 역할의 한국어 설교 ASR 교정 에이전트입니다.
+function buildPrompt({ originalText, bibleCtx }) {
+  return `당신은 한국어 설교 음성인식(ASR) 텍스트 교정 전문가입니다.
 
-[공통 절대 규칙]
+[절대 규칙]
 1) 의미 변경 금지, 내용 추가/삭제 금지
 2) 문장 구조 재작성 금지 (필요 최소 교정만)
 3) 틀린 ASR 표현/성경 용어/장절 표기만 수정
-4) 성경 관련 표현은 개역한글 기준
+4) 성경 관련 표현은 개역한글 기준으로 맞춤
 5) 출력은 교정 텍스트 본문만 (설명/주석/코드블록 금지)
-
-[현재 역할]
-${roleRule}
 
 [개역한글 참조]
 ${bibleCtx || "(추출된 구절 없음)"}
 
 [원문]
 ${originalText}
-
-[직전 단계 텍스트]
-${currentText}
 `;
 }
 
@@ -265,37 +243,19 @@ async function processSermon(sermon) {
   if (originalText.length < 120) return { sermonId: sermon.id, skipped: true };
 
   const bibleCtx = getBibleContext(originalText);
-  let current = originalText;
+  const prompt = buildPrompt({ originalText, bibleCtx });
+  const next = await callModel(prompt);
+  if (!next) return { sermonId: sermon.id, error: true };
+
+  const current = normalizeText(next);
   const passLog = [];
-
-  for (let i = 0; i < AGENT_COUNT; i++) {
-    const [roleName, roleRule] = AGENT_TEAM[i];
-    const prompt = buildPrompt({
-      roleName,
-      roleRule,
-      originalText,
-      currentText: current,
-      bibleCtx,
-    });
-
-    const next = await callModel(prompt);
-    if (!next) {
-      return { sermonId: sermon.id, error: true };
-    }
-
-    const normalizedNext = normalizeText(next);
-    const lenRatio = normalizedNext.length / Math.max(1, current.length);
-    const looksBroken = lenRatio < 0.65 || lenRatio > 1.4;
-
-    if (looksBroken) {
-      passLog.push(`${roleName}:reject(len=${normalizedNext.length})`);
-      continue;
-    }
-
-    const changed = normalizedNext !== current;
-    passLog.push(`${roleName}:${changed ? "changed" : "same"}`);
-    current = normalizedNext;
+  const lenRatio = current.length / Math.max(1, originalText.length);
+  const looksBroken = lenRatio < 0.5 || lenRatio > 1.8;
+  if (looksBroken) {
+    passLog.push("single-pass:reject(len-ratio=" + lenRatio.toFixed(2) + ")");
+    return { sermonId: sermon.id, error: true };
   }
+  passLog.push(`single-pass:${current !== originalText ? "changed" : "same"}`);
 
   const changed = current !== originalText;
   if (!DRY_RUN) {
@@ -435,12 +395,12 @@ async function main() {
 
   const sermons = getTargetSermons();
   console.log("═══════════════════════════════════════════════════");
-  console.log(" 유튜브 설교 12-에이전트 교정");
+  console.log(" 유튜브 설교 단일 패스 교정");
   console.log("═══════════════════════════════════════════════════");
   console.log(`모델: ${MODEL}`);
   console.log(`프로바이더: ${PROVIDER} (ollama=${OLLAMA_MODEL})`);
   console.log(`대상: 유튜브 스크립트만 (youtube_id NOT LIKE 'cd346-%')`);
-  console.log(`에이전트 수: ${AGENT_COUNT}`);
+  console.log(`교정 방식: 설교 단일 패스`);
   console.log(`동시성: ${CONCURRENCY}`);
   console.log(`드라이런: ${DRY_RUN}`);
   console.log(`재개모드: ${RESUME}`);

@@ -155,7 +155,7 @@ export default function SermonDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex items-center justify-center py-16" role="status" aria-label="로딩 중">
         <Loader2 className="size-6 animate-spin text-[#3182F6]" />
       </div>
     );
@@ -226,8 +226,13 @@ export default function SermonDetailPage() {
     <>
       {/* Reading progress bar */}
       <div
-        className="fixed left-0 top-0 z-[60] h-[3px] bg-primary transition-[width] duration-150"
-        style={{ width: `${progress}%` }}
+        role="progressbar"
+        aria-valuenow={Math.round(progress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="읽기 진행률"
+        className="fixed left-0 top-0 z-[60] h-[3px] origin-left bg-primary transition-transform duration-150 motion-reduce:transition-none"
+        style={{ transform: `scaleX(${progress / 100})`, width: "100%" }}
       />
 
       <div className="space-y-3">
@@ -263,6 +268,8 @@ export default function SermonDetailPage() {
               <button
                 type="button"
                 onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="메뉴"
+                aria-expanded={menuOpen}
                 className="flex size-8 items-center justify-center rounded-lg text-subtle transition-colors hover:bg-muted hover:text-foreground"
               >
                 <MoreVertical className="size-4" />
@@ -320,11 +327,12 @@ export default function SermonDetailPage() {
               <button
                 type="button"
                 onClick={() => setSummaryOpen(!summaryOpen)}
+                aria-expanded={summaryOpen}
                 className="flex w-full items-center justify-between px-4 py-2.5 sm:px-5"
               >
                 <span className="text-[12px] font-semibold text-muted-foreground">요약</span>
                 <ChevronDown
-                  className={`size-3.5 text-subtle transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
+                  className={`size-3.5 text-subtle transition-transform duration-200 motion-reduce:transition-none ${summaryOpen ? "rotate-180" : ""}`}
                 />
               </button>
               {summaryOpen && (
@@ -404,7 +412,7 @@ export default function SermonDetailPage() {
                   <textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="h-[60vh] min-h-[280px] w-full resize-y rounded-xl border border-border bg-card px-4 py-3 text-[15px] leading-8 text-foreground outline-none transition focus:ring-2 focus:ring-[#3182F6]"
+                    className="h-[60vh] min-h-[280px] w-full resize-y rounded-xl border border-border bg-card px-4 py-3 text-[15px] leading-8 text-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3182F6]"
                   />
                   {saveError && (
                     <p className="text-sm text-red-500">{saveError}</p>
@@ -422,6 +430,7 @@ export default function SermonDetailPage() {
           <button
             type="button"
             onClick={() => setNoteOpen(!noteOpen)}
+            aria-expanded={noteOpen}
             className="flex w-full items-center justify-between px-4 py-3 sm:px-5"
           >
             <div className="flex items-center gap-2">
@@ -432,7 +441,7 @@ export default function SermonDetailPage() {
               )}
             </div>
             <ChevronDown
-              className={`size-3.5 text-subtle transition-transform duration-200 ${noteOpen ? "rotate-180" : ""}`}
+              className={`size-3.5 text-subtle transition-transform duration-200 motion-reduce:transition-none ${noteOpen ? "rotate-180" : ""}`}
             />
           </button>
           {noteOpen && (
@@ -442,7 +451,7 @@ export default function SermonDetailPage() {
                 onChange={(e) => handleNoteChange(e.target.value)}
                 rows={4}
                 placeholder="이 설교에 대한 메모를 자유롭게 작성하세요..."
-                className="w-full resize-none rounded-xl bg-muted p-4 text-sm leading-7 text-foreground placeholder:text-subtle transition-all focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
+                className="w-full resize-none rounded-xl bg-muted p-4 text-sm leading-7 text-foreground placeholder:text-subtle transition-all focus-visible:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3182F6]/30"
               />
             </div>
           )}

@@ -190,6 +190,24 @@ export const recent = query({
   },
 });
 
+export const listTags = query({
+  args: {},
+  handler: async (ctx) => {
+    const sermons = await ctx.db.query("sermons").collect();
+    const tagCounts = new Map<string, number>();
+    for (const s of sermons) {
+      if (!s.tags) continue;
+      for (const raw of s.tags.split(",")) {
+        const tag = raw.trim();
+        if (tag) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      }
+    }
+    return [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ tag, count }));
+  },
+});
+
 export const totalCount = query({
   args: {},
   handler: async (ctx) => {
@@ -204,8 +222,8 @@ export const totalCount = query({
 // Inline chunker (same logic as src/lib/chunker.ts)
 function chunkText(
   text: string,
-  chunkSize = 800,
-  overlap = 150
+  chunkSize = 1500,
+  overlap = 200
 ): { index: number; content: string }[] {
   if (!text || text.trim().length === 0) return [];
   const cleaned = text.replace(/\s+/g, " ").trim();

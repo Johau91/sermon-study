@@ -5,6 +5,36 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Check, Loader2, RotateCcw, Settings, Sparkles } from "lucide-react";
 
+interface ModelOption {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+}
+
+const MODEL_OPTIONS: ModelOption[] = [
+  {
+    id: "google/gemini-2.5-flash-lite",
+    name: "절약",
+    emoji: "⚡",
+    description: "Gemini 2.5 Flash-Lite — 빠르고 저렴한 응답",
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    name: "균형",
+    emoji: "⚖️",
+    description: "Gemini 2.5 Flash — 속도와 품질의 균형",
+  },
+  {
+    id: "qwen/qwen3.5-plus",
+    name: "최고 품질",
+    emoji: "🏆",
+    description: "Qwen 3.5 Plus — 깊이 있는 고품질 답변",
+  },
+];
+
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
+
 interface StylePreset {
   id: string;
   name: string;
@@ -70,6 +100,7 @@ export default function SettingsPage() {
   const settings = useQuery(api.settings.getAll, {});
   const setSetting = useMutation(api.settings.set);
 
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_MODEL);
   const [selectedStyle, setSelectedStyle] = useState(DEFAULT_STYLE);
   const [customPrompt, setCustomPrompt] = useState("");
   const [isCustom, setIsCustom] = useState(false);
@@ -80,6 +111,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!settings) return;
+    if (settings.ai_chat_model) setSelectedModel(settings.ai_chat_model);
     if (settings.ai_style) setSelectedStyle(settings.ai_style);
     if (settings.ai_custom_prompt) setCustomPrompt(settings.ai_custom_prompt);
     if (settings.ai_style === "custom") setIsCustom(true);
@@ -106,6 +138,7 @@ export default function SettingsPage() {
     setSaved(false);
     try {
       await Promise.all([
+        setSetting({ key: "ai_chat_model", value: selectedModel }),
         setSetting({ key: "ai_style", value: isCustom ? "custom" : selectedStyle }),
         setSetting({ key: "ai_custom_prompt", value: customPrompt }),
       ]);
@@ -117,6 +150,7 @@ export default function SettingsPage() {
   };
 
   const handleReset = () => {
+    setSelectedModel(DEFAULT_MODEL);
     setSelectedStyle(DEFAULT_STYLE);
     setIsCustom(false);
     const preset = STYLE_PRESETS.find((p) => p.id === DEFAULT_STYLE);
@@ -134,17 +168,52 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[28px]">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[28px]">
           설정
         </h1>
-        <p className="mt-2 text-base leading-7 text-gray-500">
+        <p className="mt-2 text-base leading-7 text-muted-foreground">
           AI 답변 스타일을 선택하거나 직접 프롬프트를 작성하세요.
         </p>
       </div>
 
+      {/* AI Model Selection */}
+      <div>
+        <h2 className="mb-4 text-lg font-bold text-foreground">AI 모델</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {MODEL_OPTIONS.map((model) => {
+            const isSelected = selectedModel === model.id;
+            return (
+              <button
+                key={model.id}
+                type="button"
+                onClick={() => setSelectedModel(model.id)}
+                className={`group relative rounded-2xl p-5 text-left transition-all active:scale-[0.98] ${
+                  isSelected
+                    ? "bg-[#3182F6]/5 ring-2 ring-[#3182F6] shadow-sm"
+                    : "bg-card ring-1 ring-border shadow-sm hover:shadow-md hover:ring-[#3182F6]/20"
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute right-4 top-4 flex size-6 items-center justify-center rounded-full bg-[#3182F6]">
+                    <Check className="size-3.5 text-white" />
+                  </div>
+                )}
+                <div className="text-2xl">{model.emoji}</div>
+                <h3 className={`mt-3 text-base font-bold ${isSelected ? "text-[#3182F6]" : "text-foreground"}`}>
+                  {model.name}
+                </h3>
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                  {model.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Style Presets */}
       <div>
-        <h2 className="mb-4 text-lg font-bold text-gray-900">답변 스타일</h2>
+        <h2 className="mb-4 text-lg font-bold text-foreground">답변 스타일</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {STYLE_PRESETS.map((preset) => {
             const isSelected = !isCustom && selectedStyle === preset.id;
@@ -156,7 +225,7 @@ export default function SettingsPage() {
                 className={`group relative rounded-2xl p-5 text-left transition-all active:scale-[0.98] ${
                   isSelected
                     ? "bg-[#3182F6]/5 ring-2 ring-[#3182F6] shadow-sm"
-                    : "bg-white ring-1 ring-black/[0.04] shadow-sm hover:shadow-md hover:ring-[#3182F6]/20"
+                    : "bg-card ring-1 ring-border shadow-sm hover:shadow-md hover:ring-[#3182F6]/20"
                 }`}
               >
                 {isSelected && (
@@ -165,10 +234,10 @@ export default function SettingsPage() {
                   </div>
                 )}
                 <div className="text-2xl">{preset.emoji}</div>
-                <h3 className={`mt-3 text-base font-bold ${isSelected ? "text-[#3182F6]" : "text-gray-900"}`}>
+                <h3 className={`mt-3 text-base font-bold ${isSelected ? "text-[#3182F6]" : "text-foreground"}`}>
                   {preset.name}
                 </h3>
-                <p className="mt-1.5 text-sm leading-6 text-gray-500">
+                <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
                   {preset.description}
                 </p>
               </button>
@@ -180,22 +249,22 @@ export default function SettingsPage() {
       {/* Custom Prompt */}
       <div>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">프롬프트 직접 수정</h2>
+          <h2 className="text-lg font-bold text-foreground">프롬프트 직접 수정</h2>
           <button
             type="button"
             onClick={handleCustomMode}
             className={`flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isCustom
                 ? "bg-[#3182F6]/10 text-[#3182F6]"
-                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                : "bg-muted text-muted-foreground hover:bg-accent"
             }`}
           >
             <Sparkles className="size-3" />
             커스텀 모드
           </button>
         </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
-          <p className="mb-3 text-sm leading-6 text-gray-400">
+        <div className="rounded-2xl bg-card p-5 shadow-sm ring-1 ring-border">
+          <p className="mb-3 text-sm leading-6 text-subtle">
             AI가 답변할 때 사용하는 스타일 지시문입니다.
           </p>
           <textarea
@@ -209,7 +278,7 @@ export default function SettingsPage() {
             }}
             rows={8}
             placeholder="AI 답변 스타일 프롬프트를 입력하세요..."
-            className="w-full resize-none rounded-xl bg-gray-50 p-4 text-base leading-7 text-gray-700 placeholder:text-gray-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
+            className="w-full resize-none rounded-xl bg-muted p-4 text-base leading-7 text-foreground placeholder:text-subtle transition-all focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
           />
         </div>
       </div>
@@ -220,7 +289,7 @@ export default function SettingsPage() {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3182F6] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.97] sm:w-auto"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3182F6] px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-muted disabled:text-muted-foreground active:scale-[0.97] sm:w-auto"
         >
           {saving ? (
             <Loader2 className="size-4 animate-spin" />
@@ -234,7 +303,7 @@ export default function SettingsPage() {
         <button
           type="button"
           onClick={handleReset}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97] sm:w-auto"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-card px-5 py-3 text-sm font-medium text-muted-foreground ring-1 ring-border transition-all hover:bg-muted active:scale-[0.97] sm:w-auto"
         >
           <RotateCcw className="size-4" />
           기본값으로

@@ -179,21 +179,21 @@ function StudyPageInner() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[28px]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[28px]">
             학습
           </h1>
-          <p className="mt-2 text-base leading-7 text-gray-500">
+          <p className="mt-2 text-base leading-7 text-muted-foreground">
             설교를 선택하여 퀴즈 학습을 시작하세요.
           </p>
         </div>
         {error && (
-          <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
+          <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
             {error}
           </div>
         )}
-        <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-black/[0.04]">
-          <h2 className="text-lg font-bold text-gray-900">설교 선택</h2>
-          <p className="mt-1.5 text-sm text-gray-500">
+        <div className="rounded-2xl bg-card p-6 shadow-sm ring-1 ring-border">
+          <h2 className="text-lg font-bold text-foreground">설교 선택</h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
             학습할 설교를 선택하세요. 설교 내용을 바탕으로 퀴즈가 자동 생성됩니다.
           </p>
           <Link
@@ -214,8 +214,8 @@ function StudyPageInner() {
         <div className="mb-5 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
           <Loader2 className="size-8 animate-spin text-[#3182F6]" />
         </div>
-        <p className="text-lg font-bold text-gray-900">퀴즈를 생성하고 있습니다...</p>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="text-lg font-bold text-foreground">퀴즈를 생성하고 있습니다...</p>
+        <p className="mt-2 text-sm text-muted-foreground">
           설교 내용을 분석하여 학습 문제를 만들고 있어요.
         </p>
       </div>
@@ -226,35 +226,35 @@ function StudyPageInner() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-[28px]">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-[28px]">
             학습 결과
           </h1>
           {sermonTitle && (
-            <p className="mt-2 text-base leading-7 text-gray-500">{sermonTitle}</p>
+            <p className="mt-2 text-base leading-7 text-muted-foreground">{sermonTitle}</p>
           )}
         </div>
-        <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-black/[0.04]">
+        <div className="rounded-2xl bg-card p-8 text-center shadow-sm ring-1 ring-border">
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
             <Trophy className="size-8 text-[#3182F6]" />
           </div>
-          <p className="text-[40px] font-bold text-gray-900">
+          <p className="text-[40px] font-bold text-foreground">
             {scorePercent}
-            <span className="text-xl text-gray-400">%</span>
+            <span className="text-xl text-subtle">%</span>
           </p>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {questions.length}문제 중 {correctCount}문제 정답
           </p>
           <div className="mt-4">
             {scorePercent >= 80 ? (
-              <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-medium text-green-600">
+              <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-medium text-green-600 dark:bg-green-950/30 dark:text-green-400">
                 훌륭합니다!
               </span>
             ) : scorePercent >= 50 ? (
-              <span className="rounded-full bg-yellow-50 px-4 py-1.5 text-sm font-medium text-yellow-600">
+              <span className="rounded-full bg-yellow-50 px-4 py-1.5 text-sm font-medium text-yellow-600 dark:bg-yellow-950/30 dark:text-yellow-400">
                 좋은 시작이에요!
               </span>
             ) : (
-              <span className="rounded-full bg-orange-50 px-4 py-1.5 text-sm font-medium text-orange-600">
+              <span className="rounded-full bg-orange-50 px-4 py-1.5 text-sm font-medium text-orange-600 dark:bg-orange-950/30 dark:text-orange-400">
                 다시 한번 도전해보세요!
               </span>
             )}
@@ -262,31 +262,31 @@ function StudyPageInner() {
         </div>
         <div className="space-y-3">
           {results.map((result, i) => (
-            <div key={i} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
+            <div key={i} className="rounded-2xl bg-card p-5 shadow-sm ring-1 ring-border">
               <div className="flex items-start gap-3">
                 {result.isCorrect ? (
-                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-green-50">
+                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-green-50 dark:bg-green-950/30">
                     <CheckCircle className="size-4 text-green-500" />
                   </div>
                 ) : (
-                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-red-50">
+                  <div className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/30">
                     <XCircle className="size-4 text-red-500" />
                   </div>
                 )}
                 <div className="flex-1 space-y-3">
-                  <p className="text-base font-semibold leading-7 text-gray-900">
+                  <p className="text-base font-semibold leading-7 text-foreground">
                     Q{i + 1}. {questions[i].question}
                   </p>
-                  <div className="rounded-xl bg-gray-50 p-3">
-                    <p className="text-xs font-medium text-gray-400 mb-1">나의 답변</p>
-                    <p className="text-sm text-gray-700">{result.userAnswer}</p>
+                  <div className="rounded-xl bg-muted p-3">
+                    <p className="text-xs font-medium text-subtle mb-1">나의 답변</p>
+                    <p className="text-sm text-foreground">{result.userAnswer}</p>
                   </div>
                   <div className="rounded-xl bg-[#3182F6]/5 p-3">
                     <p className="text-xs font-medium text-[#3182F6]/60 mb-1">모범 답안</p>
-                    <p className="text-sm text-gray-700">{result.expectedAnswer}</p>
+                    <p className="text-sm text-foreground">{result.expectedAnswer}</p>
                   </div>
                   {result.feedback && (
-                    <p className="text-sm text-gray-500">{result.feedback}</p>
+                    <p className="text-sm text-muted-foreground">{result.feedback}</p>
                   )}
                 </div>
               </div>
@@ -298,7 +298,7 @@ function StudyPageInner() {
             <button
               type="button"
               onClick={() => generateQuiz(sermonIdParam)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97] sm:w-auto"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-card px-5 py-3 text-sm font-medium text-foreground ring-1 ring-border transition-all hover:bg-muted active:scale-[0.97] sm:w-auto"
             >
               <RefreshCw className="size-4" />
               다시 도전하기
@@ -306,14 +306,14 @@ function StudyPageInner() {
           )}
           <Link
             href="/sermons"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-[0.97] sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-card px-5 py-3 text-sm font-medium text-foreground ring-1 ring-border transition-all hover:bg-muted active:scale-[0.97] sm:w-auto"
           >
             <BookOpen className="size-4" />
             다른 설교 선택
           </Link>
           <Link
             href="/"
-            className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-gray-500 transition-colors hover:text-gray-700 sm:w-auto"
+            className="flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:w-auto"
           >
             홈으로
           </Link>
@@ -329,29 +329,29 @@ function StudyPageInner() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-[22px]">
+        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-[22px]">
           학습 퀴즈
         </h1>
         {sermonTitle && (
-          <p className="mt-1 text-base leading-7 text-gray-500">{sermonTitle}</p>
+          <p className="mt-1 text-base leading-7 text-muted-foreground">{sermonTitle}</p>
         )}
       </div>
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-foreground">
             문제 {currentIndex + 1} / {questions.length}
           </span>
-          <span className="text-gray-400">{Math.round(progress)}% 완료</span>
+          <span className="text-subtle">{Math.round(progress)}% 완료</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-[#3182F6] transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] sm:p-6">
-        <p className="text-lg font-bold leading-8 text-gray-900">
+      <div className="rounded-2xl bg-card p-5 shadow-sm ring-1 ring-border sm:p-6">
+        <p className="text-lg font-bold leading-8 text-foreground">
           Q{currentIndex + 1}. {currentQuestion.question}
         </p>
         <textarea
@@ -360,17 +360,17 @@ function StudyPageInner() {
           onChange={(e) => setCurrentAnswer(e.target.value)}
           rows={4}
           disabled={submitting}
-          className="mt-5 w-full resize-none rounded-xl bg-gray-50 p-4 text-base leading-7 text-gray-800 placeholder:text-gray-400 transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
+          className="mt-5 w-full resize-none rounded-xl bg-muted p-4 text-base leading-7 text-foreground placeholder:text-subtle transition-all focus:bg-card focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
         />
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-subtle">
             설교 내용을 떠올리며 답변해보세요.
           </p>
           <button
             type="button"
             onClick={submitAnswer}
             disabled={!currentAnswer.trim() || submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3182F6] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.97] sm:w-auto sm:py-2.5"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#3182F6] px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] disabled:bg-muted disabled:text-muted-foreground active:scale-[0.97] sm:w-auto sm:py-2.5"
           >
             {submitting ? (
               <>
@@ -392,26 +392,26 @@ function StudyPageInner() {
         </div>
       </div>
       {error && (
-        <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600">
+        <div className="rounded-2xl bg-red-50 px-5 py-4 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
           {error}
         </div>
       )}
       {results.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-gray-400">이전 답변 결과</h3>
+          <h3 className="text-sm font-medium text-subtle">이전 답변 결과</h3>
           {results.map((result, i) => (
-            <div key={i} className="rounded-2xl bg-white/80 p-4 ring-1 ring-black/[0.04]">
+            <div key={i} className="rounded-2xl bg-card/80 p-4 ring-1 ring-border">
               <div className="flex items-center gap-2">
                 {result.isCorrect ? (
                   <CheckCircle className="size-4 text-green-500" />
                 ) : (
                   <XCircle className="size-4 text-red-500" />
                 )}
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-foreground">
                   Q{i + 1}. {questions[i].question}
                 </p>
               </div>
-              <p className="mt-2 pl-6 text-sm leading-6 text-gray-500">
+              <p className="mt-2 pl-6 text-sm leading-6 text-muted-foreground">
                 {result.feedback}
               </p>
             </div>

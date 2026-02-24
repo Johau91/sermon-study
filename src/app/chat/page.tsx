@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Markdown from "react-markdown";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -13,6 +13,9 @@ import {
   MessageCircle,
   BookOpen,
   Plus,
+  X,
+  Copy,
+  Check,
 } from "lucide-react";
 
 const CONVEX_SITE_URL = process.env.NEXT_PUBLIC_CONVEX_SITE_URL!;
@@ -44,8 +47,12 @@ function ChatPageInner() {
   const [sessionId, setSessionId] = useState<string>("");
   const [isLoadingSessionMessages, setIsLoadingSessionMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Mutations
+  const deleteSessionMutation = useMutation(api.chat.deleteSession);
 
   // Convex reactive session list
   const sessionsData = useQuery(api.chat.listSessions, {});
@@ -73,32 +80,6 @@ function ChatPageInner() {
     shouldScrollRef.current = isStreaming;
   }, [isStreaming]);
 
-  const loadSession = useCallback(
-    async (targetSessionId: string) => {
-      if (!targetSessionId || targetSessionId === sessionId || isStreaming) return;
-      setIsLoadingSessionMessages(true);
-      setError(null);
-      try {
-        // We can't use useQuery dynamically, so fetch from Convex directly
-        // But since we already have the reactive query, let's use a simple approach
-        const res = await fetch(
-          `${CONVEX_SITE_URL}/../api/query`,
-          { method: "POST" }
-        );
-        // Actually, the simplest approach: use the Convex client directly isn't possible
-        // from a callback. Let's just set the session and re-render.
-        setSessionId(targetSessionId);
-        setMessages([]);
-        setInput("");
-      } catch (err) {
-        setError("대화 내용을 불러오지 못했습니다.");
-      } finally {
-        setIsLoadingSessionMessages(false);
-      }
-    },
-    [isStreaming, sessionId]
-  );
-
   // Load messages for current session reactively
   const sessionMessages = useQuery(
     api.chat.getSessionMessages,
@@ -123,6 +104,37 @@ function ChatPageInner() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionMessages, isStreaming]);
+
+  const resetChat = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setSessionId(crypto.randomUUID());
+    setError(null);
+  }, []);
+
+  // Auto-focus input
+  useEffect(() => {
+    if (!isStreaming && !isLoadingSessionMessages) {
+      textareaRef.current?.focus();
+    }
+  }, [isStreaming, isLoadingSessionMessages, sessionId]);
+
+  const handleDeleteSession = useCallback(
+    async (targetSessionId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      await deleteSessionMutation({ sessionId: targetSessionId });
+      if (targetSessionId === sessionId) {
+        resetChat();
+      }
+    },
+    [deleteSessionMutation, sessionId, resetChat]
+  );
+
+  const handleCopy = useCallback(async (text: string, index: number) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  }, []);
 
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
@@ -250,13 +262,6 @@ function ChatPageInner() {
     }
   };
 
-  const resetChat = () => {
-    setMessages([]);
-    setInput("");
-    setSessionId(crypto.randomUUID());
-    setError(null);
-  };
-
   const handleSuggestion = (question: string) => {
     setInput(question);
     setTimeout(() => {
@@ -286,15 +291,15 @@ function ChatPageInner() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-[#F7F8FA]">
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-background">
       {/* Sidebar - Session List */}
-      <aside className="hidden w-72 shrink-0 flex-col overflow-hidden border-r bg-white md:flex">
+      <aside className="hidden w-72 shrink-0 flex-col overflow-hidden border-r bg-card md:flex">
         <div className="flex items-center justify-between px-5 py-4">
-          <h2 className="text-lg font-bold text-gray-900">채팅</h2>
+          <h2 className="text-lg font-bold text-foreground">채팅</h2>
           <button
             type="button"
             onClick={resetChat}
-            className="flex size-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="flex size-9 items-center justify-center rounded-xl text-subtle transition-colors hover:bg-muted hover:text-foreground"
             title="새 대화"
           >
             <Plus className="size-5" />
@@ -303,11 +308,11 @@ function ChatPageInner() {
 
         <ScrollArea className="flex-1 px-2">
           {isLoadingSessions ? (
-            <div className="px-3 py-4 text-sm text-gray-400">
+            <div className="px-3 py-4 text-sm text-subtle">
               불러오는 중...
             </div>
           ) : sessions.length === 0 ? (
-            <div className="px-3 py-4 text-sm text-gray-400">
+            <div className="px-3 py-4 text-sm text-subtle">
               아직 대화가 없습니다
             </div>
           ) : (
@@ -315,32 +320,44 @@ function ChatPageInner() {
               {sessions.map((session) => {
                 const isActive = session.sessionId === sessionId;
                 return (
-                  <button
+                  <div
                     key={session.sessionId}
-                    type="button"
-                    onClick={() => {
-                      setSessionId(session.sessionId);
-                      setMessages([]);
-                      setInput("");
-                      setError(null);
-                    }}
-                    disabled={isStreaming || isLoadingSessionMessages}
-                    className={`group relative w-full rounded-xl px-3 py-2.5 text-left transition-all ${
+                    className={`group relative flex items-center rounded-xl transition-all ${
                       isActive
                         ? "bg-[#3182F6]/5"
-                        : "hover:bg-gray-50"
+                        : "hover:bg-muted"
                     }`}
                   >
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[#3182F6]" />
-                    )}
-                    <p className={`line-clamp-2 text-sm ${isActive ? "font-semibold text-[#3182F6]" : "font-medium text-gray-800"}`}>
-                      {formatSessionTitle(session.title)}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {formatTime(session.lastMessageAt)}
-                    </p>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSessionId(session.sessionId);
+                        setMessages([]);
+                        setInput("");
+                        setError(null);
+                      }}
+                      disabled={isStreaming || isLoadingSessionMessages}
+                      className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                    >
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-[#3182F6]" />
+                      )}
+                      <p className={`line-clamp-2 text-sm ${isActive ? "font-semibold text-[#3182F6]" : "font-medium text-foreground"}`}>
+                        {formatSessionTitle(session.title)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-subtle">
+                        {formatTime(session.lastMessageAt)}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteSession(session.sessionId, e)}
+                      className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-lg text-subtle opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-red-950/30"
+                      title="삭제"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -352,28 +369,43 @@ function ChatPageInner() {
       <div className="flex flex-1 flex-col">
         {/* Mobile session pills */}
         {sessions.length > 0 && (
-          <div className="border-b bg-white px-4 py-2 md:hidden">
+          <div className="border-b bg-card px-4 py-2 md:hidden">
             <ScrollArea className="w-full whitespace-nowrap">
               <div className="flex gap-2">
-                {sessions.map((session) => (
-                  <button
-                    key={`mobile-${session.sessionId}`}
-                    type="button"
-                    onClick={() => {
-                      setSessionId(session.sessionId);
-                      setMessages([]);
-                      setInput("");
-                    }}
-                    disabled={isStreaming || isLoadingSessionMessages}
-                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                      session.sessionId === sessionId
-                        ? "bg-[#3182F6] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {formatSessionTitle(session.title)}
-                  </button>
-                ))}
+                {sessions.map((session) => {
+                  const isActive = session.sessionId === sessionId;
+                  return (
+                    <div key={`mobile-${session.sessionId}`} className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSessionId(session.sessionId);
+                          setMessages([]);
+                          setInput("");
+                        }}
+                        disabled={isStreaming || isLoadingSessionMessages}
+                        className={`rounded-full py-1.5 pl-3.5 pr-7 text-xs font-medium transition-colors ${
+                          isActive
+                            ? "bg-[#3182F6] text-white"
+                            : "bg-muted text-muted-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {formatSessionTitle(session.title)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSession(session.sessionId, e)}
+                        className={`absolute right-1 top-1/2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full transition-colors ${
+                          isActive
+                            ? "text-white/70 hover:text-white"
+                            : "text-muted-foreground/50 hover:text-foreground"
+                        }`}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
@@ -384,7 +416,7 @@ function ChatPageInner() {
           <div className="mx-auto max-w-2xl px-4 py-6">
             {isLoadingSessionMessages ? (
               <div className="flex h-[60vh] items-center justify-center">
-                <div className="flex items-center gap-3 text-gray-400">
+                <div className="flex items-center gap-3 text-subtle">
                   <Loader2 className="size-5 animate-spin" />
                   <span className="text-base">대화를 불러오는 중...</span>
                 </div>
@@ -394,10 +426,10 @@ function ChatPageInner() {
                 <div className="mb-6 flex size-16 items-center justify-center rounded-2xl bg-[#3182F6]/10">
                   <MessageCircle className="size-8 text-[#3182F6]" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 className="text-xl font-bold text-foreground">
                   무엇이든 물어보세요
                 </h2>
-                <p className="mt-2 text-center text-base leading-7 text-gray-500">
+                <p className="mt-2 text-center text-base leading-7 text-muted-foreground">
                   설교 내용을 바탕으로 AI가 답변합니다
                 </p>
                 <div className="mt-8 flex flex-wrap justify-center gap-2">
@@ -406,7 +438,7 @@ function ChatPageInner() {
                       key={q}
                       type="button"
                       onClick={() => handleSuggestion(q)}
-                      className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-[#3182F6]/30 hover:bg-[#3182F6]/5 hover:text-[#3182F6] active:scale-[0.97]"
+                      className="rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all hover:border-[#3182F6]/30 hover:bg-[#3182F6]/5 hover:text-[#3182F6] active:scale-[0.97]"
                     >
                       {q}
                     </button>
@@ -422,17 +454,17 @@ function ChatPageInner() {
                       msg.role === "user" ? "justify-end" : "justify-start"
                     }`}
                   >
-                    <div className="flex max-w-[90%] flex-col gap-1.5 sm:max-w-[85%]">
+                    <div className="group/msg flex max-w-[90%] flex-col gap-1.5 sm:max-w-[85%]">
                       <div
-                        className={`px-4 py-3 ${
+                        className={`relative px-4 py-3 ${
                           msg.role === "user"
                             ? "rounded-[20px] rounded-tr-[4px] bg-[#3182F6] text-white"
-                            : "rounded-[20px] rounded-tl-[4px] bg-white shadow-sm"
+                            : "rounded-[20px] rounded-tl-[4px] bg-card shadow-sm"
                         }`}
                       >
-                        <div className={`text-base leading-7 ${msg.role === "assistant" ? "text-gray-800" : ""}`}>
+                        <div className={`text-base leading-7 ${msg.role === "assistant" ? "text-foreground" : ""}`}>
                           {msg.role === "assistant" ? (
-                            <div className="prose max-w-none prose-p:my-2 prose-headings:text-gray-900 prose-a:text-[#3182F6] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                            <div className="prose max-w-none prose-p:my-2 prose-headings:text-foreground prose-a:text-[#3182F6] dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                               <Markdown>{msg.content}</Markdown>
                             </div>
                           ) : (
@@ -443,18 +475,32 @@ function ChatPageInner() {
                             i === messages.length - 1 &&
                             !msg.content && (
                               <div className="flex items-center gap-1.5 py-1">
-                                <span className="typing-dot-1 inline-block size-2 rounded-full bg-gray-400" />
-                                <span className="typing-dot-2 inline-block size-2 rounded-full bg-gray-400" />
-                                <span className="typing-dot-3 inline-block size-2 rounded-full bg-gray-400" />
+                                <span className="typing-dot-1 inline-block size-2 rounded-full bg-subtle" />
+                                <span className="typing-dot-2 inline-block size-2 rounded-full bg-subtle" />
+                                <span className="typing-dot-3 inline-block size-2 rounded-full bg-subtle" />
                               </div>
                             )}
                           {msg.role === "assistant" &&
                             isStreaming &&
                             i === messages.length - 1 &&
                             msg.content && (
-                              <span className="ml-0.5 inline-block size-1.5 animate-pulse rounded-full bg-gray-400 align-middle" />
+                              <span className="ml-0.5 inline-block size-1.5 animate-pulse rounded-full bg-subtle align-middle" />
                             )}
                         </div>
+                        {msg.role === "assistant" && msg.content && !(isStreaming && i === messages.length - 1) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(msg.content, i)}
+                            className="absolute -bottom-3 right-2 flex size-7 items-center justify-center rounded-lg bg-card text-subtle opacity-0 shadow-sm ring-1 ring-border transition-all hover:text-foreground group-hover/msg:opacity-100"
+                            title="복사"
+                          >
+                            {copiedIndex === i ? (
+                              <Check className="size-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="size-3.5" />
+                            )}
+                          </button>
+                        )}
                       </div>
 
                       {msg.refs && msg.refs.length > 0 && (
@@ -463,7 +509,7 @@ function ChatPageInner() {
                             <Link
                               key={`${ref.sermon_id}-${refIndex}`}
                               href={`/sermons/${ref.sermon_id}`}
-                              className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm transition-colors hover:text-[#3182F6]"
+                              className="flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors hover:text-[#3182F6]"
                             >
                               <BookOpen className="size-3 text-[#3182F6]" />
                               <span className="max-w-[200px] truncate">{ref.title}</span>
@@ -483,19 +529,19 @@ function ChatPageInner() {
         {/* Error */}
         {error && (
           <div className="mx-auto max-w-2xl px-4 pb-2">
-            <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600">
+            <div className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600 dark:bg-red-950/30 dark:text-red-400">
               {error}
             </div>
           </div>
         )}
 
         {/* Input Area */}
-        <div className="bg-gradient-to-t from-[#F7F8FA] via-[#F7F8FA] to-transparent pt-2">
+        <div className="bg-gradient-to-t from-background via-background to-transparent pt-2">
           <div className="mx-auto max-w-2xl px-4 pb-4">
             <form
               id="chat-form"
               onSubmit={handleSubmit}
-              className="flex items-end gap-2 rounded-2xl bg-white p-2 shadow-lg shadow-black/5 ring-1 ring-black/[0.03]"
+              className="flex items-end gap-2 rounded-2xl bg-card p-2 shadow-lg shadow-black/5 ring-1 ring-border"
             >
               <textarea
                 ref={textareaRef}
@@ -509,13 +555,13 @@ function ChatPageInner() {
                 }}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                className="flex-1 resize-none bg-transparent px-3 py-2.5 text-base leading-7 text-gray-800 placeholder:text-gray-400 focus:outline-none"
+                className="flex-1 resize-none bg-transparent px-3 py-2.5 text-base leading-7 text-foreground placeholder:text-subtle focus:outline-none"
                 disabled={isStreaming}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isStreaming}
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white transition-all hover:bg-[#2B71DE] disabled:bg-gray-200 disabled:text-gray-400 active:scale-95"
+                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#3182F6] text-white transition-all hover:bg-[#2B71DE] disabled:bg-muted disabled:text-muted-foreground active:scale-95"
               >
                 {isStreaming ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -524,7 +570,7 @@ function ChatPageInner() {
                 )}
               </button>
             </form>
-            <p className="mt-2 text-center text-xs text-gray-400">
+            <p className="mt-2 text-center text-xs text-subtle">
               Shift+Enter로 줄바꿈
             </p>
           </div>
@@ -538,7 +584,7 @@ export default function ChatPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center bg-[#F7F8FA]">
+        <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center bg-background">
           <Loader2 className="size-8 animate-spin text-[#3182F6]" />
         </div>
       }

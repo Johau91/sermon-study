@@ -126,6 +126,9 @@ ${bibleContext ? `\n# 참고 성경(개역한글)\n${bibleContext}` : ""}`;
 
     const messages = [...condensedHistory, { role: "user", content: message }];
 
+    // 5.5. Load AI model preference
+    const chatModel = settings.ai_chat_model || undefined;
+
     // 6. Emit refs then stream AI response
     const encoder = new TextEncoder();
 
@@ -145,7 +148,7 @@ ${bibleContext ? `\n# 참고 성경(개역한글)\n${bibleContext}` : ""}`;
 
         let fullResponse = "";
         try {
-          const aiStream = await streamChatInternal(messages, systemPrompt);
+          const aiStream = await streamChatInternal(messages, systemPrompt, chatModel);
           const reader = aiStream.getReader();
           const decoder = new TextDecoder();
           let buffer = "";

@@ -1,3 +1,6 @@
+/** Bump this whenever ASR_CORRECTIONS changes. Used to skip already-processed sermons. */
+export const PATTERN_VERSION = 8;
+
 /**
  * ASR (Automatic Speech Recognition) correction patterns.
  * Ported from scripts/auto-correct-bible.mjs.
@@ -105,7 +108,8 @@ export const ASR_CORRECTIONS: [RegExp, string][] = [
   [/주 주님/g, "주님"],
 
   // ── Common worship/theology terms ──
-  [/예배요/g, "옛 뱀이요"],
+  [/곧 예배요/g, "곧 옛 뱀이요"],
+  [/예배요 마귀/g, "옛 뱀이요 마귀"],
   [/예베소서/g, "에베소서"],
   [/윤석전목사/g, "윤석전 목사"],
   [/윤석 전/g, "윤석전"],

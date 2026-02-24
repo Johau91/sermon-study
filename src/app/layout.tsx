@@ -4,6 +4,7 @@ import "./globals.css";
 import { NavBar, AppFooter, PageWrapper } from "@/components/nav-bar";
 import { resolveMetadataBase } from "@/lib/metadata";
 import { ConvexClientProvider } from "@/components/convex-provider";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,6 +15,7 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
 
 export const metadata: Metadata = {
   metadataBase: resolveMetadataBase(),
@@ -50,18 +52,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ConvexClientProvider>
-          <div className="min-h-screen flex flex-col">
-            <NavBar />
-            <main className="flex-1">
-              <PageWrapper>{children}</PageWrapper>
-            </main>
-            <AppFooter />
-          </div>
+          <ThemeProvider>
+            <div className="min-h-screen flex flex-col">
+              <NavBar />
+              <main className="flex-1">
+                <PageWrapper>{children}</PageWrapper>
+              </main>
+              <AppFooter />
+            </div>
+          </ThemeProvider>
         </ConvexClientProvider>
       </body>
     </html>

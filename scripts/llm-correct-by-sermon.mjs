@@ -24,6 +24,7 @@ const ID_TO = parseInt(
 );
 const YOUTUBE_ONLY = process.argv.includes("--youtube-only");
 const APPLY = process.argv.includes("--apply");
+const BEFORE_YEAR = process.argv.find((a) => a.startsWith("--before="))?.split("=")[1] || null;
 
 /* ── Database ─────────────────────────────────────────────── */
 const DB_PATH = path.join(process.cwd(), "data", "sermons.db");
@@ -105,25 +106,34 @@ ${text}
 ===`;
 };
 
-/* ── Claude CLI call ─────────────────────────────────────── */
+/* ── Codex CLI call ──────────────────────────────────────── */
 let tmpCounter = 0;
 
 async function correctWithClaude(text) {
   const promptFile = path.join(os.tmpdir(), `sermon-full-${process.pid}-${tmpCounter++}.txt`);
+  const outputFile = promptFile.replace(".txt", "-out.txt");
   try {
-    fs.writeFileSync(promptFile, PROMPT_TEMPLATE(text), "utf-8");
-    const { stdout } = await execFileAsync(
-      "/bin/sh",
-      ["-c", `cat "${promptFile}" | claude -p - --output-format text --model haiku`],
-      { timeout: 300000, maxBuffer: 10 * 1024 * 1024, env: { ...process.env } }
+    const prompt = PROMPT_TEMPLATE(text);
+    fs.writeFileSync(promptFile, prompt, "utf-8");
+    await execFileAsync(
+      "codex",
+      [
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "-o", outputFile,
+        prompt,
+      ],
+      { timeout: 300000, maxBuffer: 10 * 1024 * 1024 }
     );
-    return stdout.trim() || null;
+    const result = fs.readFileSync(outputFile, "utf-8").trim();
+    return result || null;
   } catch (err) {
     const msg = err.stderr || err.message || "unknown error";
-    console.error(`\n  ⚠ Claude error: ${String(msg).slice(0, 200)}`);
+    console.error(`\n  ⚠ Codex error: ${String(msg).slice(0, 200)}`);
     return null;
   } finally {
     try { fs.unlinkSync(promptFile); } catch {}
+    try { fs.unlinkSync(outputFile); } catch {}
   }
 }
 
@@ -188,8 +198,22 @@ function applyCorrections() {
   console.log(`적용 대상: ${rows.length}개 설교\n`);
   if (rows.length === 0) return;
 
+  // Drop FTS triggers to avoid sync errors during bulk update
+  db.exec(`
+    DROP TRIGGER IF EXISTS chunks_ai;
+    DROP TRIGGER IF EXISTS chunks_ad;
+    DROP TRIGGER IF EXISTS chunks_au;
+  `);
+
+  const updateTranscriptCorrected = db.prepare(
+    "UPDATE sermons SET transcript_corrected = ? WHERE id = ?"
+  );
+
   let applied = 0;
   for (const row of rows) {
+    // Update transcript_corrected on the sermon
+    updateTranscriptCorrected.run(row.corrected_text, row.sermon_id);
+
     const chunks = db.prepare(
       "SELECT id, chunk_index FROM chunks WHERE sermon_id = ? ORDER BY chunk_index"
     ).all(row.sermon_id);
@@ -230,7 +254,27 @@ function applyCorrections() {
     }
   }
 
-  console.log(`완료: ${applied}개 설교의 청크 업데이트`);
+  // Rebuild FTS index and triggers
+  db.exec(`
+    DROP TABLE IF EXISTS chunks_fts;
+    CREATE VIRTUAL TABLE chunks_fts USING fts5(
+      content, content_rowid='id', tokenize='unicode61'
+    );
+    INSERT INTO chunks_fts(rowid, content) SELECT id, content FROM chunks;
+
+    CREATE TRIGGER chunks_ai AFTER INSERT ON chunks BEGIN
+      INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+    CREATE TRIGGER chunks_ad AFTER DELETE ON chunks BEGIN
+      INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.id, old.content);
+    END;
+    CREATE TRIGGER chunks_au AFTER UPDATE OF content ON chunks BEGIN
+      INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.id, old.content);
+      INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+  `);
+
+  console.log(`완료: ${applied}개 설교의 청크 + transcript_corrected 업데이트`);
 }
 
 /* ── Main ─────────────────────────────────────────────────── */
@@ -241,7 +285,7 @@ async function main() {
   }
 
   console.log("═══════════════════════════════════════════════════");
-  console.log(" LLM 설교 교정 - 설교 단위 (Claude CLI)");
+  console.log(" LLM 설교 교정 - 설교 단위 (Codex CLI)");
   console.log("═══════════════════════════════════════════════════");
   console.log(`  Concurrency: ${CONCURRENCY}`);
   console.log(`  Dry run: ${DRY_RUN}`);
@@ -255,12 +299,14 @@ async function main() {
   } else {
     // Skip already processed sermons, apply optional ID range and youtube filter
     const youtubeFilter = YOUTUBE_ONLY ? "AND s.youtube_id NOT LIKE 'cd346-%'" : "";
+    const beforeFilter = BEFORE_YEAR ? `AND s.published_at < '${BEFORE_YEAR}-01-01'` : "";
     sermons = db.prepare(`
       SELECT s.id, s.title FROM sermons s
       LEFT JOIN llm_sermon_corrections lc ON s.id = lc.sermon_id
       WHERE lc.sermon_id IS NULL
         AND s.id >= ? AND s.id <= ?
         ${youtubeFilter}
+        ${beforeFilter}
       ORDER BY s.id
     `).all(ID_FROM, ID_TO);
   }

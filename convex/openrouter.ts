@@ -97,10 +97,10 @@ export async function generateTextInternal(
   return data.choices?.[0]?.message?.content || "";
 }
 
-export async function streamChatInternal(
-  messages: { role: string; content: string }[],
+export async function generateJsonInternal(
+  prompt: string,
   systemPrompt: string
-): Promise<ReadableStream<Uint8Array>> {
+): Promise<string> {
   const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
     method: "POST",
     headers: {
@@ -109,6 +109,35 @@ export async function streamChatInternal(
     },
     body: JSON.stringify({
       model: getChatModel(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      stream: false,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`OpenRouter JSON error: ${res.status} ${err}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "{}";
+}
+
+export async function streamChatInternal(
+  messages: { role: string; content: string }[],
+  systemPrompt: string,
+  model?: string
+): Promise<ReadableStream<Uint8Array>> {
+  const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: model || getChatModel(),
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: true,
     }),

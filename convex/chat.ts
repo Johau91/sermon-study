@@ -69,6 +69,19 @@ export const getSessionMessages = query({
   },
 });
 
+export const deleteSession = mutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+    for (const msg of messages) {
+      await ctx.db.delete(msg._id);
+    }
+  },
+});
+
 export const saveMessages = mutation({
   args: {
     sessionId: v.string(),

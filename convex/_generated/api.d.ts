@@ -15,6 +15,7 @@ import type * as embeddingsHelpers from "../embeddingsHelpers.js";
 import type * as http from "../http.js";
 import type * as lib_asrPatterns from "../lib/asrPatterns.js";
 import type * as lib_bibleParser from "../lib/bibleParser.js";
+import type * as llmCorrectionHelpers from "../llmCorrectionHelpers.js";
 import type * as migration from "../migration.js";
 import type * as openrouter from "../openrouter.js";
 import type * as quiz from "../quiz.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/asrPatterns": typeof lib_asrPatterns;
   "lib/bibleParser": typeof lib_bibleParser;
+  llmCorrectionHelpers: typeof llmCorrectionHelpers;
   migration: typeof migration;
   openrouter: typeof openrouter;
   quiz: typeof quiz;

@@ -11,6 +11,8 @@ export default defineSchema({
     transcriptCorrected: v.optional(v.string()),
     summary: v.optional(v.string()),
     tags: v.optional(v.string()),
+    patternVersion: v.optional(v.number()),
+    llmCorrectionVersion: v.optional(v.number()),
   })
     .index("by_originalId", ["originalId"])
     .index("by_youtubeId", ["youtubeId"])
