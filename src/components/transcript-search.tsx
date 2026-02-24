@@ -2,6 +2,17 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Search, ChevronUp, ChevronDown, X } from "lucide-react";
+import { parseBibleReference, type BibleRef } from "../../convex/lib/bibleParser";
+import BiblePopover from "./bible-popover";
+
+const BIBLE_REF_RE =
+  /([가-힣0-9]{1,10}\s*\d{1,3}\s*(?::|장\s*)\s*\d{1,3}(?:\s*[-~]\s*\d{1,3}(?:\s*절)?)?\s*(?:절)?)/g;
+
+interface Segment {
+  text: string;
+  isMatch: boolean;
+  bibleRef: BibleRef | null;
+}
 
 interface Props {
   transcript: string;
@@ -14,6 +25,10 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const matchRefs = useRef<(HTMLElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [popover, setPopover] = useState<{
+    ref: BibleRef;
+    anchorEl: HTMLElement;
+  } | null>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -27,33 +42,51 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
     matchRefs.current = [];
   }, [debouncedQuery]);
 
-  // Build highlighted segments
+  // Build highlighted segments (2-pass: search + bible refs)
   const { segments, matchCount } = useMemo(() => {
+    // Pass 1: split by search query
+    let pass1: { text: string; isMatch: boolean }[];
+    let count = 0;
+
     if (!debouncedQuery.trim()) {
-      return { segments: [{ text: transcript, isMatch: false }], matchCount: 0 };
+      pass1 = [{ text: transcript, isMatch: false }];
+    } else {
+      const escaped = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(${escaped})`, "gi");
+      const parts = transcript.split(regex);
+      pass1 = parts.map((part) => {
+        const isMatch = regex.test(part);
+        regex.lastIndex = 0;
+        if (isMatch) count++;
+        return { text: part, isMatch };
+      });
     }
 
-    const escaped = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const regex = new RegExp(`(${escaped})`, "gi");
-    const parts = transcript.split(regex);
+    // Pass 2: split each segment's text by bible references
+    const pass2: Segment[] = [];
+    for (const seg of pass1) {
+      const subParts = seg.text.split(BIBLE_REF_RE);
+      for (const sub of subParts) {
+        if (!sub) continue;
+        const parsed = parseBibleReference(sub.trim());
+        pass2.push({
+          text: sub,
+          isMatch: seg.isMatch,
+          bibleRef: parsed,
+        });
+      }
+    }
 
-    let count = 0;
-    const segs = parts.map((part) => {
-      const isMatch = regex.test(part);
-      regex.lastIndex = 0; // reset regex state
-      if (isMatch) count++;
-      return { text: part, isMatch };
-    });
-
-    return { segments: segs, matchCount: count };
+    return { segments: pass2, matchCount: count };
   }, [transcript, debouncedQuery]);
 
-  // Scroll to active match
+  // Scroll to active match (respect reduced motion)
   useEffect(() => {
     if (matchCount === 0) return;
     const el = matchRefs.current[activeIndex];
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: prefersReduced ? "instant" : "smooth", block: "center" });
     }
   }, [activeIndex, matchCount]);
 
@@ -87,12 +120,33 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
     [goNext, goPrev, resetSearch]
   );
 
+  const handleBibleClick = useCallback(
+    (ref: BibleRef, el: HTMLElement) => {
+      setPopover((prev) =>
+        prev && prev.anchorEl === el ? null : { ref, anchorEl: el }
+      );
+    },
+    []
+  );
+
   // Render highlighted transcript
   let matchIdx = 0;
   const rendered = segments.map((seg, i) => {
+    const bibleButton = seg.bibleRef ? (
+      <button
+        key={i}
+        type="button"
+        className="underline decoration-[#3182F6]/40 underline-offset-2 transition-colors hover:text-[#3182F6]"
+        onClick={(e) => handleBibleClick(seg.bibleRef!, e.currentTarget)}
+      >
+        {seg.text}
+      </button>
+    ) : null;
+
     if (!seg.isMatch) {
-      return <span key={i}>{seg.text}</span>;
+      return bibleButton ?? <span key={i}>{seg.text}</span>;
     }
+
     const currentMatchIdx = matchIdx++;
     const isActive = currentMatchIdx === activeIndex;
     return (
@@ -107,7 +161,7 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
             : "rounded-sm bg-yellow-200 text-foreground dark:bg-yellow-500/30"
         }
       >
-        {seg.text}
+        {bibleButton ?? seg.text}
       </mark>
     );
   });
@@ -124,12 +178,13 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="본문 검색..."
-            className="h-8 w-full rounded-lg bg-muted pl-8 pr-8 text-[13px] text-foreground placeholder:text-subtle outline-none transition-colors focus:ring-2 focus:ring-[#3182F6]/30"
+            className="h-8 w-full rounded-lg bg-muted pl-8 pr-8 text-[13px] text-foreground placeholder:text-subtle transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3182F6]/30"
           />
           {query && (
             <button
               type="button"
               onClick={resetSearch}
+              aria-label="검색 초기화"
               className="absolute right-2 flex items-center justify-center text-subtle hover:text-foreground"
             >
               <X className="size-3.5" />
@@ -172,6 +227,14 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
       >
         {rendered}
       </div>
+
+      {popover && (
+        <BiblePopover
+          bibleRef={popover.ref}
+          anchorEl={popover.anchorEl}
+          onClose={() => setPopover(null)}
+        />
+      )}
     </div>
   );
 }
