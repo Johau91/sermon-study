@@ -19,6 +19,15 @@ export function formatTranscript(raw: string): string {
   return splitIntoParagraphs(text, 300);
 }
 
+/** Returns an array of paragraph strings (for rendering as <p> elements) */
+export function formatTranscriptParagraphs(raw: string): string[] {
+  let text = raw.replace(/\s+/g, " ").trim();
+  text = text.replace(/(아멘[.,!]?\s*){2,}/g, "");
+  text = text.replace(/아멘\.\s*(?![이을에은는의란라하으])/g, "");
+  text = text.replace(/\s+/g, " ").trim();
+  return splitIntoParagraphsArray(text, 300);
+}
+
 function splitIntoParagraphs(text: string, target: number): string {
   const paragraphs: string[] = [];
   let pos = 0;
@@ -63,4 +72,47 @@ function splitIntoParagraphs(text: string, target: number): string {
   }
 
   return paragraphs.join("\n\n");
+}
+
+function splitIntoParagraphsArray(text: string, target: number): string[] {
+  const paragraphs: string[] = [];
+  let pos = 0;
+
+  while (pos < text.length) {
+    if (text.length - pos <= target * 1.5) {
+      paragraphs.push(text.slice(pos).trim());
+      break;
+    }
+
+    const lo = pos + Math.max(target - 100, 100);
+    const hi = pos + Math.min(target + 100, text.length - pos);
+    let breakAt = -1;
+
+    for (let i = hi; i >= lo; i--) {
+      if (
+        (text[i] === "." || text[i] === "?" || text[i] === "!") &&
+        i + 1 < text.length &&
+        text[i + 1] === " "
+      ) {
+        breakAt = i + 2;
+        break;
+      }
+    }
+
+    if (breakAt > pos) {
+      paragraphs.push(text.slice(pos, breakAt).trim());
+      pos = breakAt;
+    } else {
+      const space = text.indexOf(" ", pos + target);
+      if (space > 0) {
+        paragraphs.push(text.slice(pos, space).trim());
+        pos = space + 1;
+      } else {
+        paragraphs.push(text.slice(pos).trim());
+        break;
+      }
+    }
+  }
+
+  return paragraphs;
 }

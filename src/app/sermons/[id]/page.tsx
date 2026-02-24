@@ -10,14 +10,13 @@ import {
   Pencil,
   Save,
   X,
-  ExternalLink,
+  Play,
   GraduationCap,
   MessageCircle,
-  Calendar,
   Loader2,
   ChevronDown,
 } from "lucide-react";
-import { formatTranscript } from "@/lib/format-transcript";
+import { formatTranscriptParagraphs } from "@/lib/format-transcript";
 
 export default function SermonDetailPage() {
   const params = useParams();
@@ -47,10 +46,10 @@ export default function SermonDetailPage() {
       <div className="space-y-4">
         <Link
           href="/sermons"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-[#3182F6]"
+          className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-[#3182F6]"
         >
-          <ArrowLeft className="size-4" />
-          설교 목록
+          <ArrowLeft className="size-3.5" />
+          목록
         </Link>
         <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-black/[0.04]">
           설교를 찾을 수 없습니다.
@@ -94,156 +93,145 @@ export default function SermonDetailPage() {
     }
   };
 
+  const dateStr = sermon.publishedAt
+    ? new Date(sermon.publishedAt).toLocaleDateString("ko-KR", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "날짜 미상";
+
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-3">
       {/* Back */}
       <Link
         href="/sermons"
-        className="inline-flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors hover:text-[#3182F6]"
+        className="inline-flex items-center gap-1 text-[13px] text-gray-400 hover:text-[#3182F6]"
       >
         <ArrowLeft className="size-3.5" />
         목록
       </Link>
 
-      {/* Single unified card for header + actions + summary */}
-      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
-        {/* Title & Meta */}
-        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5">
-          <h1 className="text-[17px] font-bold leading-[1.4] text-gray-900 sm:text-xl">
+      {/* Unified card */}
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
+        {/* Title block */}
+        <div className="px-4 pt-4 pb-3 sm:px-5">
+          <h1 className="text-[16px] font-bold leading-snug text-gray-900 sm:text-lg">
             {sermon.title}
           </h1>
-
-          <div className="mt-2 flex items-center gap-3">
-            <span className="flex items-center gap-1 text-xs text-gray-400">
-              <Calendar className="size-3" />
-              {sermon.publishedAt
-                ? new Date(sermon.publishedAt).toLocaleDateString("ko-KR", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "날짜 미상"}
-            </span>
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {tags.map((tag, index) => (
-                  <span
-                    key={`${tag}-${index}`}
-                    className="rounded bg-gray-100 px-1.5 py-px text-[11px] font-medium text-gray-500"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-gray-400">
+            <span>{dateStr}</span>
+            {tags.map((tag, i) => (
+              <span key={i} className="rounded bg-gray-100 px-1.5 py-px font-medium text-gray-500">
+                {tag}
+              </span>
+            ))}
           </div>
         </div>
 
-        {/* Actions row */}
-        <div className="flex items-center gap-1.5 border-t border-gray-100 px-4 py-2.5 sm:px-6">
+        {/* Compact action bar */}
+        <div className="flex items-center border-t border-gray-100">
           <a
             href={youtubeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            title="YouTube에서 보기"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
+            title="YouTube"
+            className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-red-500"
           >
-            <ExternalLink className="size-4" />
-            <span className="hidden xs:inline sm:inline">YouTube</span>
+            <Play className="size-3.5" />
+            <span className="sm:inline">영상</span>
           </a>
+          <div className="w-px self-stretch bg-gray-100" />
           <Link
             href={`/study?sermonId=${sermon.originalId}`}
-            title="퀴즈 시작"
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-[#3182F6] px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] active:scale-95"
+            title="퀴즈"
+            className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-semibold text-[#3182F6] transition-colors hover:bg-[#3182F6]/5"
           >
-            <GraduationCap className="size-4" />
+            <GraduationCap className="size-3.5" />
             퀴즈
           </Link>
+          <div className="w-px self-stretch bg-gray-100" />
           <Link
             href={`/chat?sermonId=${sermon.originalId}`}
-            title="이 설교에 대해 질문하기"
-            className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
+            title="질문"
+            className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-medium text-gray-500 transition-colors hover:bg-gray-50 hover:text-[#3182F6]"
           >
-            <MessageCircle className="size-4" />
-            <span className="hidden xs:inline sm:inline">질문</span>
+            <MessageCircle className="size-3.5" />
+            질문
           </Link>
-
-          {/* Spacer + Edit button pushed to right */}
-          <div className="ml-auto">
-            {!editing && (sermon.transcriptCorrected || sermon.transcriptRaw) && (
+          {!editing && displayTranscript && (
+            <>
+              <div className="w-px self-stretch bg-gray-100" />
               <button
                 type="button"
                 onClick={startEdit}
-                title="텍스트 수정"
-                className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                title="수정"
+                className="flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[12px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
               >
                 <Pencil className="size-3.5" />
-                <span className="hidden sm:inline">수정</span>
+                수정
               </button>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
         {/* Summary accordion */}
         {sermon.summary && (
-          <>
-            <div className="border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setSummaryOpen(!summaryOpen)}
-                className="flex w-full items-center justify-between px-4 py-3 sm:px-6"
-              >
-                <span className="text-[13px] font-semibold text-gray-900">요약</span>
-                <ChevronDown
-                  className={`size-4 text-gray-400 transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-            </div>
+          <div className="border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setSummaryOpen(!summaryOpen)}
+              className="flex w-full items-center justify-between px-4 py-2.5 sm:px-5"
+            >
+              <span className="text-[12px] font-semibold text-gray-500">요약</span>
+              <ChevronDown
+                className={`size-3.5 text-gray-400 transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
+              />
+            </button>
             {summaryOpen && (
-              <div className="border-t border-gray-50 px-4 pb-4 pt-2 sm:px-6">
-                <p className="whitespace-pre-wrap text-sm leading-6 text-gray-600">
+              <div className="border-t border-gray-50 px-4 pb-4 pt-2 sm:px-5">
+                <p className="text-[13px] leading-[1.7] text-gray-600">
                   {sermon.summary}
                 </p>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
       {/* Transcript */}
-      {(sermon.transcriptCorrected || sermon.transcriptRaw) && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
-          {/* Editing toolbar */}
+      {displayTranscript && (
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
           {editing && (
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 sm:px-6">
-              <span className="text-xs font-medium text-gray-500">편집 중</span>
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2 sm:px-5">
+              <span className="text-[11px] font-medium text-gray-400">편집 중</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={cancelEdit}
                   disabled={saving}
-                  className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-60"
+                  className="flex h-7 items-center gap-1 rounded-md px-2 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200 hover:bg-gray-50 disabled:opacity-60"
                 >
-                  <X className="size-3.5" />
+                  <X className="size-3" />
                   취소
                 </button>
                 <button
                   type="button"
                   onClick={saveTranscriptHandler}
                   disabled={saving}
-                  className="flex h-8 items-center gap-1 rounded-lg bg-[#3182F6] px-2.5 text-xs font-semibold text-white transition-all hover:bg-[#2B71DE] disabled:opacity-70"
+                  className="flex h-7 items-center gap-1 rounded-md bg-[#3182F6] px-2 text-[11px] font-semibold text-white hover:bg-[#2B71DE] disabled:opacity-70"
                 >
-                  {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  {saving ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
                   저장
                 </button>
               </div>
             </div>
           )}
 
-          <div className="px-4 py-4 sm:px-6 sm:py-5">
+          <div className="px-4 py-4 sm:px-5 sm:py-5">
             {!editing && (
-              <p className="mb-3 text-[11px] font-medium text-gray-400">
-                {sermon.transcriptCorrected ? "교정본" : "음성인식 원문"}
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-300">
+                {sermon.transcriptCorrected ? "교정본" : "원문"}
               </p>
             )}
             {editing ? (
@@ -251,15 +239,19 @@ export default function SermonDetailPage() {
                 <textarea
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
-                  className="h-[60vh] min-h-[280px] w-full resize-y rounded-xl border border-gray-200 px-4 py-3 text-[15px] leading-8 text-gray-800 outline-none ring-[#3182F6] transition focus:ring-2"
+                  className="h-[60vh] min-h-[280px] w-full resize-y rounded-xl border border-gray-200 px-4 py-3 text-[15px] leading-8 text-gray-800 outline-none transition focus:ring-2 focus:ring-[#3182F6]"
                 />
                 {saveError && (
                   <p className="text-sm text-red-500">{saveError}</p>
                 )}
               </div>
             ) : (
-              <div className="whitespace-pre-wrap text-[15px] leading-[1.9] text-gray-700">
-                {formatTranscript(displayTranscript)}
+              <div className="text-[15px] leading-[1.8] text-gray-700">
+                {formatTranscriptParagraphs(displayTranscript).map((p, i) => (
+                  <p key={i} className={i > 0 ? "mt-5" : ""}>
+                    {p}
+                  </p>
+                ))}
               </div>
             )}
           </div>
