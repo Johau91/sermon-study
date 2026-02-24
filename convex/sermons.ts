@@ -82,6 +82,11 @@ export const getByOriginalId = query({
       .first();
     if (!sermon) return null;
 
+    const transcript = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
+      .first();
+
     const chunks = await ctx.db
       .query("chunks")
       .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
@@ -91,6 +96,8 @@ export const getByOriginalId = query({
 
     return {
       ...sermon,
+      transcriptRaw: transcript?.transcriptRaw ?? sermon.transcriptRaw,
+      transcriptCorrected: transcript?.transcriptCorrected ?? sermon.transcriptCorrected,
       chunks: chunks.map((c) => ({
         _id: c._id,
         chunkIndex: c.chunkIndex,
@@ -106,6 +113,11 @@ export const getById = query({
     const sermon = await ctx.db.get(args.id);
     if (!sermon) return null;
 
+    const transcript = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
+      .first();
+
     const chunks = await ctx.db
       .query("chunks")
       .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
@@ -115,6 +127,8 @@ export const getById = query({
 
     return {
       ...sermon,
+      transcriptRaw: transcript?.transcriptRaw ?? sermon.transcriptRaw,
+      transcriptCorrected: transcript?.transcriptCorrected ?? sermon.transcriptCorrected,
       chunks: chunks.map((c) => ({
         _id: c._id,
         chunkIndex: c.chunkIndex,
@@ -134,12 +148,28 @@ export const updateTranscript = mutation({
     if (!sermon) throw new Error("Sermon not found");
 
     const normalized = args.transcript.replace(/\r\n/g, "\n").trim();
+
+    // Upsert into transcripts table
+    const existing = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", args.id))
+      .first();
+
     const updateField =
-      sermon.transcriptCorrected !== undefined && sermon.transcriptCorrected !== null
+      (existing?.transcriptCorrected ?? sermon.transcriptCorrected) != null
         ? "transcriptCorrected"
         : "transcriptRaw";
 
-    await ctx.db.patch(args.id, { [updateField]: normalized });
+    if (existing) {
+      await ctx.db.patch(existing._id, { [updateField]: normalized });
+    } else {
+      await ctx.db.insert("transcripts", {
+        sermonId: args.id,
+        [updateField]: normalized,
+      });
+    }
+
+    await ctx.db.patch(args.id, { hasTranscript: true });
 
     // Delete existing chunks
     const existingChunks = await ctx.db
@@ -169,7 +199,19 @@ export const updateTranscript = mutation({
 export const patchTranscriptText = mutation({
   args: { id: v.id("sermons"), text: v.string() },
   handler: async (ctx, args) => {
-    await ctx.db.patch(args.id, { transcriptCorrected: args.text });
+    const existing = await ctx.db
+      .query("transcripts")
+      .withIndex("by_sermonId", (q) => q.eq("sermonId", args.id))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { transcriptCorrected: args.text });
+    } else {
+      await ctx.db.insert("transcripts", {
+        sermonId: args.id,
+        transcriptCorrected: args.text,
+      });
+    }
   },
 });
 
@@ -193,15 +235,25 @@ export const recent = query({
 export const listTags = query({
   args: {},
   handler: async (ctx) => {
-    const sermons = await ctx.db.query("sermons").collect();
     const tagCounts = new Map<string, number>();
-    for (const s of sermons) {
-      if (!s.tags) continue;
-      for (const raw of s.tags.split(",")) {
-        const tag = raw.trim();
-        if (tag) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    let cursor: string | null = null;
+    let isDone = false;
+
+    while (!isDone) {
+      const page: any = await ctx.db
+        .query("sermons")
+        .paginate({ numItems: 200, cursor: cursor ?? undefined } as any);
+      for (const s of page.page) {
+        if (!s.tags) continue;
+        for (const raw of (s.tags as string).split(",")) {
+          const tag = raw.trim();
+          if (tag) tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        }
       }
+      isDone = page.isDone;
+      cursor = page.continueCursor;
     }
+
     return [...tagCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([tag, count]) => ({ tag, count }));
