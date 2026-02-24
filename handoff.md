@@ -12,22 +12,12 @@
 - Next.js 16.1.6, React 19, Tailwind CSS 4, shadcn/ui
 - 설교 3,882개, 청크 ~61,589개, 개역한글 성경 30,929절
 
-## 완료된 작업 (2026-02-24)
-- **Convex + OpenRouter 마이그레이션 전체 완료**
-  - Phase 0-5: 스키마, 백엔드, 프론트엔드, 마이그레이션, 정리 모두 완료
-- **데이터 마이그레이션 완료**: 설교 3,882, 청크 ~61,589, 성경 30,929, 채팅 196, 퀴즈 4, 설정 2
-- **임베딩 생성 완료**: 전체 청크 임베딩 생성됨 (text-embedding-3-small, 1536차원)
-- **Vercel 배포 완료**: https://sermon-study-sigma.vercel.app
-
 ## 최근 작업 (2026-02-25)
-- **ASR 정규식 패턴 대량 추가**: 39 → 98개 패턴 확장, 전체 3,882개 설교 reprocess 완료
-  - 사탄/마귀(3), 강건(3), 교회/직함(7), 주의 사자(4), 기도문(8), 일반 단어(21), 노이즈 태그(3) 등
-  - `송도`→`성도` false positive 수정: `(?<![가-힣])송도` lookbehind 적용
-  - `연체`→`연세` 제거 (일반 단어 충돌), 대신 `연체중앙`/`연체 교회` 특정 패턴으로 교체
-- **NAS 음원 → Whisper → Convex 파이프라인 구현**
-  - `convex/transcriptCleanupHelpers.ts`: `getNasAudioPage`, `saveNasTranscript` 추가
-  - `convex/transcriptCleanup.ts`: `getNasSermons`, `saveNasTranscript` action 추가
-  - `scripts/nas_whisper_convex.py`: Whisper 전사 → Convex 저장 스크립트
+- **비슷한 설교 추천 + 본문 검색 하이라이트**
+  - `convex/similar.ts`: summary 임베딩 → 벡터 유사도 기반 3개 추천 액션
+  - `src/components/similar-sermons.tsx`: 추천 카드 UI (제목+요약+태그, 클릭→이동)
+  - `src/components/transcript-search.tsx`: 본문 텍스트 검색, 하이라이트, ↑/↓ 매치 네비게이션
+  - 설교 상세 페이지에 두 컴포넌트 통합
 
 ## 주요 파일 구조
 ```
@@ -38,7 +28,8 @@ convex/
   embeddings.ts, embeddingsHelpers.ts
   lib/bibleParser.ts
 src/
-  components/convex-provider.tsx
+  components/convex-provider.tsx, theme-provider.tsx, nav-bar.tsx
+  lib/preferences.ts
   app/ (page.tsx, sermons/, chat/, study/, settings/)
 scripts/
   migrate-to-convex.ts

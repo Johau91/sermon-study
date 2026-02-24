@@ -22,6 +22,7 @@ import type * as search from "../search.js";
 import type * as searchHelpers from "../searchHelpers.js";
 import type * as sermons from "../sermons.js";
 import type * as settings from "../settings.js";
+import type * as similar from "../similar.js";
 import type * as transcriptCleanup from "../transcriptCleanup.js";
 import type * as transcriptCleanupHelpers from "../transcriptCleanupHelpers.js";
 
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   searchHelpers: typeof searchHelpers;
   sermons: typeof sermons;
   settings: typeof settings;
+  similar: typeof similar;
   transcriptCleanup: typeof transcriptCleanup;
   transcriptCleanupHelpers: typeof transcriptCleanupHelpers;
 }>;
