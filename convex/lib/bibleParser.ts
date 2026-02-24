@@ -67,7 +67,7 @@ export function parseBibleReference(input: string): BibleRef | null {
   }
 
   const chapterVerseMatch = normalized.match(
-    /^([가-힣0-9]+)\s*(\d{1,3})\s*장\s*(\d{1,3})\s*절(?:\s*[-~]\s*(\d{1,3})\s*절)?$/
+    /^([가-힣0-9]+)\s*(\d{1,3})\s*장\s*(\d{1,3})\s*절(?:\s*(?:[-~]|로(?:\s*부터)?|에서|부터)\s*(\d{1,3})\s*절(?:\s*까지)?)?$/
   );
   if (!chapterVerseMatch) return null;
   const book = normalizeBookName(chapterVerseMatch[1]);
@@ -86,7 +86,7 @@ export function extractBibleReferences(
 ): BibleRef[] {
   const matches =
     text.match(
-      /([가-힣0-9]{1,10}\s*\d{1,3}\s*(?::|장\s*)\s*\d{1,3}(?:\s*[-~]\s*\d{1,3}(?:\s*절)?)?\s*(?:절)?)/g
+      /([가-힣0-9]{1,10}\s*\d{1,3}\s*(?::|장\s*)\s*\d{1,3}(?:\s*(?:[-~]|절\s*(?:로(?:\s*부터)?|에서|부터)\s*)\s*\d{1,3}(?:\s*절)?(?:\s*까지)?)?\s*(?:절)?)/g
     ) || [];
   const refs: BibleRef[] = [];
   const seen = new Set<string>();

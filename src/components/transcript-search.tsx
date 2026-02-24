@@ -6,7 +6,7 @@ import { parseBibleReference, type BibleRef } from "../../convex/lib/bibleParser
 import BiblePopover from "./bible-popover";
 
 const BIBLE_REF_RE =
-  /([가-힣0-9]{1,10}\s*\d{1,3}\s*(?::|장\s*)\s*\d{1,3}(?:\s*[-~]\s*\d{1,3}(?:\s*절)?)?\s*(?:절)?)/g;
+  /([가-힣0-9]{1,10}\s*\d{1,3}\s*(?::|장\s*)\s*\d{1,3}(?:\s*(?:[-~]|절\s*(?:로(?:\s*부터)?|에서|부터)\s*)\s*\d{1,3}(?:\s*절)?(?:\s*까지)?)?\s*(?:절)?)/g;
 
 interface Segment {
   text: string;
