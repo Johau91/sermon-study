@@ -95,151 +95,157 @@ export default function SermonDetailPage() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Back Navigation */}
+    <div className="space-y-3 sm:space-y-4">
+      {/* Back */}
       <Link
         href="/sermons"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 transition-colors hover:text-[#3182F6]"
+        className="inline-flex items-center gap-1 text-sm font-medium text-gray-400 transition-colors hover:text-[#3182F6]"
       >
-        <ArrowLeft className="size-4" />
-        설교 목록
+        <ArrowLeft className="size-3.5" />
+        목록
       </Link>
 
-      {/* Header Card */}
-      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04]">
-        <h1 className="text-lg font-bold leading-7 text-gray-900 sm:text-[22px] sm:leading-8">
-          {sermon.title}
-        </h1>
-        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
-          <Calendar className="size-3.5" />
-          {sermon.publishedAt
-            ? new Date(sermon.publishedAt).toLocaleDateString("ko-KR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })
-            : "날짜 미상"}
+      {/* Single unified card for header + actions + summary */}
+      <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
+        {/* Title & Meta */}
+        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-5">
+          <h1 className="text-[17px] font-bold leading-[1.4] text-gray-900 sm:text-xl">
+            {sermon.title}
+          </h1>
+
+          <div className="mt-2 flex items-center gap-3">
+            <span className="flex items-center gap-1 text-xs text-gray-400">
+              <Calendar className="size-3" />
+              {sermon.publishedAt
+                ? new Date(sermon.publishedAt).toLocaleDateString("ko-KR", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "날짜 미상"}
+            </span>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {tags.map((tag, index) => (
+                  <span
+                    key={`${tag}-${index}`}
+                    className="rounded bg-gray-100 px-1.5 py-px text-[11px] font-medium text-gray-500"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {tags.map((tag, index) => (
-              <span
-                key={`${tag}-${index}`}
-                className="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Action Buttons — icon-only on mobile, with text on sm+ */}
-        <div className="mt-4 flex items-center gap-2">
+        {/* Actions row */}
+        <div className="flex items-center gap-1.5 border-t border-gray-100 px-4 py-2.5 sm:px-6">
           <a
             href={youtubeUrl}
             target="_blank"
             rel="noopener noreferrer"
             title="YouTube에서 보기"
-            className="flex size-11 items-center justify-center rounded-xl bg-white text-gray-600 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-95 sm:h-10 sm:w-auto sm:gap-2 sm:px-4"
+            className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
           >
-            <ExternalLink className="size-[18px] sm:size-4" />
-            <span className="hidden sm:inline text-sm font-medium">YouTube</span>
+            <ExternalLink className="size-4" />
+            <span className="hidden xs:inline sm:inline">YouTube</span>
           </a>
           <Link
             href={`/study?sermonId=${sermon.originalId}`}
             title="퀴즈 시작"
-            className="flex size-11 items-center justify-center rounded-xl bg-[#3182F6] text-white shadow-sm transition-all hover:bg-[#2B71DE] active:scale-95 sm:h-10 sm:w-auto sm:gap-2 sm:px-4"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-[#3182F6] px-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#2B71DE] active:scale-95"
           >
-            <GraduationCap className="size-[18px] sm:size-4" />
-            <span className="hidden sm:inline text-sm font-semibold">퀴즈</span>
+            <GraduationCap className="size-4" />
+            퀴즈
           </Link>
           <Link
             href={`/chat?sermonId=${sermon.originalId}`}
             title="이 설교에 대해 질문하기"
-            className="flex size-11 items-center justify-center rounded-xl bg-white text-gray-600 ring-1 ring-gray-200 transition-all hover:bg-gray-50 active:scale-95 sm:h-10 sm:w-auto sm:gap-2 sm:px-4"
+            className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 active:scale-95"
           >
-            <MessageCircle className="size-[18px] sm:size-4" />
-            <span className="hidden sm:inline text-sm font-medium">질문</span>
+            <MessageCircle className="size-4" />
+            <span className="hidden xs:inline sm:inline">질문</span>
           </Link>
-        </div>
-      </div>
 
-      {/* Summary — collapsible */}
-      {sermon.summary && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
-          <button
-            type="button"
-            onClick={() => setSummaryOpen(!summaryOpen)}
-            className="flex w-full items-center justify-between px-5 py-4"
-          >
-            <h2 className="text-base font-bold text-gray-900">요약</h2>
-            <ChevronDown
-              className={`size-5 text-gray-400 transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-          {summaryOpen && (
-            <div className="border-t border-gray-100 px-5 pb-5 pt-3">
-              <p className="whitespace-pre-wrap text-[15px] leading-7 text-gray-700">
-                {sermon.summary}
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Transcript */}
-      {(sermon.transcriptCorrected || sermon.transcriptRaw) && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
-          <div className="flex items-center justify-between px-5 py-4">
-            <div>
-              <h2 className="text-base font-bold text-gray-900">설교 전문</h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                {sermon.transcriptCorrected
-                  ? "교정된 설교 내용입니다."
-                  : "음성인식 원문입니다."}
-              </p>
-            </div>
-            {!editing ? (
+          {/* Spacer + Edit button pushed to right */}
+          <div className="ml-auto">
+            {!editing && (sermon.transcriptCorrected || sermon.transcriptRaw) && (
               <button
                 type="button"
                 onClick={startEdit}
                 title="텍스트 수정"
-                className="flex size-10 items-center justify-center rounded-xl text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                className="flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
               >
-                <Pencil className="size-4" />
-                <span className="hidden sm:inline text-sm font-medium">수정</span>
+                <Pencil className="size-3.5" />
+                <span className="hidden sm:inline">수정</span>
               </button>
-            ) : (
-              <div className="flex items-center gap-2">
+            )}
+          </div>
+        </div>
+
+        {/* Summary accordion */}
+        {sermon.summary && (
+          <>
+            <div className="border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(!summaryOpen)}
+                className="flex w-full items-center justify-between px-4 py-3 sm:px-6"
+              >
+                <span className="text-[13px] font-semibold text-gray-900">요약</span>
+                <ChevronDown
+                  className={`size-4 text-gray-400 transition-transform duration-200 ${summaryOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
+            {summaryOpen && (
+              <div className="border-t border-gray-50 px-4 pb-4 pt-2 sm:px-6">
+                <p className="whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                  {sermon.summary}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Transcript */}
+      {(sermon.transcriptCorrected || sermon.transcriptRaw) && (
+        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.04]">
+          {/* Editing toolbar */}
+          {editing && (
+            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-2.5 sm:px-6">
+              <span className="text-xs font-medium text-gray-500">편집 중</span>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={cancelEdit}
                   disabled={saving}
-                  className="flex size-10 items-center justify-center rounded-xl text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-60 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-gray-500 ring-1 ring-gray-200 transition-all hover:bg-gray-50 disabled:opacity-60"
                 >
-                  <X className="size-4" />
-                  <span className="hidden sm:inline text-sm font-medium">취소</span>
+                  <X className="size-3.5" />
+                  취소
                 </button>
                 <button
                   type="button"
                   onClick={saveTranscriptHandler}
                   disabled={saving}
-                  className="flex size-10 items-center justify-center rounded-xl bg-[#3182F6] text-white transition-all hover:bg-[#2B71DE] disabled:opacity-70 sm:h-9 sm:w-auto sm:gap-1.5 sm:px-3"
+                  className="flex h-8 items-center gap-1 rounded-lg bg-[#3182F6] px-2.5 text-xs font-semibold text-white transition-all hover:bg-[#2B71DE] disabled:opacity-70"
                 >
-                  {saving ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Save className="size-4" />
-                  )}
-                  <span className="hidden sm:inline text-sm font-semibold">저장</span>
+                  {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
+                  저장
                 </button>
               </div>
+            </div>
+          )}
+
+          <div className="px-4 py-4 sm:px-6 sm:py-5">
+            {!editing && (
+              <p className="mb-3 text-[11px] font-medium text-gray-400">
+                {sermon.transcriptCorrected ? "교정본" : "음성인식 원문"}
+              </p>
             )}
-          </div>
-          <div className="border-t border-gray-100" />
-          <div className="px-5 py-4">
             {editing ? (
               <div className="space-y-2">
                 <textarea
@@ -252,7 +258,7 @@ export default function SermonDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="reading-content whitespace-pre-wrap text-[15px] leading-8 text-gray-700">
+              <div className="whitespace-pre-wrap text-[15px] leading-[1.9] text-gray-700">
                 {formatTranscript(displayTranscript)}
               </div>
             )}
