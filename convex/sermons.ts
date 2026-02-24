@@ -31,6 +31,7 @@ export const list = query({
 
     const result = await ctx.db
       .query("sermons")
+      .withIndex("by_originalId")
       .order("desc")
       .paginate(args.paginationOpts);
 
@@ -46,6 +47,28 @@ export const list = query({
         tags: s.tags,
         _creationTime: s._creationTime,
       })),
+    };
+  },
+});
+
+export const getAdjacentByOriginalId = query({
+  args: { originalId: v.number() },
+  handler: async (ctx, args) => {
+    // prev = originalId가 더 큰 (최신) 설교
+    const prev = await ctx.db
+      .query("sermons")
+      .withIndex("by_originalId", (q) => q.gt("originalId", args.originalId))
+      .order("asc")
+      .first();
+    // next = originalId가 더 작은 (오래된) 설교
+    const next = await ctx.db
+      .query("sermons")
+      .withIndex("by_originalId", (q) => q.lt("originalId", args.originalId))
+      .order("desc")
+      .first();
+    return {
+      prev: prev ? { originalId: prev.originalId, title: prev.title } : null,
+      next: next ? { originalId: next.originalId, title: next.title } : null,
     };
   },
 });
@@ -139,6 +162,14 @@ export const updateTranscript = mutation({
     }
 
     return { chunkCount: chunks.length };
+  },
+});
+
+// Patch only the transcript text, preserving chunks and embeddings
+export const patchTranscriptText = mutation({
+  args: { id: v.id("sermons"), text: v.string() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { transcriptCorrected: args.text });
   },
 });
 

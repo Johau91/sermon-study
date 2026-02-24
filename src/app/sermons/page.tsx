@@ -107,6 +107,7 @@ export default function SermonsPage() {
                 <Link key={sermon._id} href={`/sermons/${sermon.originalId}`}>
                   <div className="group h-full rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/[0.04] transition-all hover:shadow-md hover:ring-[#3182F6]/20">
                     <h3 className="line-clamp-2 text-base font-semibold text-gray-900 transition-colors group-hover:text-[#3182F6]">
+                      <span className="mr-1.5 text-sm font-normal text-gray-400">#{sermon.originalId}</span>
                       {sermon.title}
                     </h3>
                     <p className="mt-2 text-xs text-gray-400">
