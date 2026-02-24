@@ -28,7 +28,7 @@ export const list = query({
     const sermons = await ctx.db
       .query("sermons")
       .order("desc")
-      .take(args.limit ?? 5000);
+      .take(args.limit ?? 50);
 
     return sermons.map((s) => ({
       _id: s._id,
@@ -138,8 +138,11 @@ export const updateTranscript = mutation({
 export const totalCount = query({
   args: {},
   handler: async (ctx) => {
-    const sermons = await ctx.db.query("sermons").collect();
-    return sermons.length;
+    const setting = await ctx.db
+      .query("appSettings")
+      .withIndex("by_key", (q) => q.eq("key", "sermon_count"))
+      .first();
+    return setting ? parseInt(setting.value, 10) : 0;
   },
 });
 

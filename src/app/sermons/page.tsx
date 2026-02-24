@@ -8,21 +8,26 @@ import { Search, Loader2, BookOpen } from "lucide-react";
 
 export default function SermonsPage() {
   const [searchQuery, setSearchQuery] = useState("");
-  const sermons = useQuery(api.sermons.list, {});
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const sermons = useQuery(api.sermons.list, debouncedSearch.trim() ? { search: debouncedSearch.trim(), limit: 50 } : { limit: 50 });
 
   const loading = sermons === undefined;
 
-  const filteredSermons = useMemo(() => {
-    if (!sermons) return [];
-    if (!searchQuery.trim()) return sermons;
-    const query = searchQuery.toLowerCase();
-    return sermons.filter(
-      (sermon) =>
-        sermon.title.toLowerCase().includes(query) ||
-        (sermon.tags && sermon.tags.toLowerCase().includes(query)) ||
-        (sermon.summary && sermon.summary.toLowerCase().includes(query))
-    );
-  }, [sermons, searchQuery]);
+  // Debounce search
+  const debounceRef = useMemo(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    return (value: string) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setDebouncedSearch(value), 300);
+    };
+  }, []);
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    debounceRef(value);
+  };
+
+  const filteredSermons = sermons ?? [];
 
   return (
     <div className="space-y-6">
@@ -43,7 +48,7 @@ export default function SermonsPage() {
           type="text"
           placeholder="설교 제목, 태그로 검색..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           className="w-full rounded-xl bg-white py-3.5 pl-11 pr-4 text-base text-gray-800 shadow-sm ring-1 ring-black/[0.04] placeholder:text-gray-400 transition-shadow focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
         />
       </div>
