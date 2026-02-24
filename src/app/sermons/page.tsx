@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePaginatedQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -30,6 +30,26 @@ export default function SermonsPage() {
     setSearchQuery(value);
     debounceRef(value);
   };
+
+  // Infinite scroll
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef(loadMore);
+  loadMoreRef.current = loadMore;
+
+  const handleIntersect = useCallback((entries: IntersectionObserverEntry[]) => {
+    if (entries[0]?.isIntersecting) {
+      loadMoreRef.current(30);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (status !== "CanLoadMore") return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleIntersect, { rootMargin: "400px" });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [status, handleIntersect]);
 
   return (
     <div className="space-y-6">
@@ -124,17 +144,8 @@ export default function SermonsPage() {
             })}
           </div>
 
-          {/* Load More */}
-          {status === "CanLoadMore" && (
-            <div className="flex justify-center pt-2">
-              <button
-                onClick={() => loadMore(30)}
-                className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-black/[0.04] transition-all hover:bg-gray-50 active:scale-[0.97]"
-              >
-                더 보기
-              </button>
-            </div>
-          )}
+          {/* Infinite scroll sentinel */}
+          {status === "CanLoadMore" && <div ref={sentinelRef} className="h-1" />}
           {status === "LoadingMore" && (
             <div className="flex justify-center pt-2">
               <Loader2 className="size-5 animate-spin text-[#3182F6]" />
