@@ -13,6 +13,7 @@ import type * as chat from "../chat.js";
 import type * as embeddings from "../embeddings.js";
 import type * as embeddingsHelpers from "../embeddingsHelpers.js";
 import type * as http from "../http.js";
+import type * as lib_asrPatterns from "../lib/asrPatterns.js";
 import type * as lib_bibleParser from "../lib/bibleParser.js";
 import type * as migration from "../migration.js";
 import type * as openrouter from "../openrouter.js";
@@ -21,6 +22,8 @@ import type * as search from "../search.js";
 import type * as searchHelpers from "../searchHelpers.js";
 import type * as sermons from "../sermons.js";
 import type * as settings from "../settings.js";
+import type * as transcriptCleanup from "../transcriptCleanup.js";
+import type * as transcriptCleanupHelpers from "../transcriptCleanupHelpers.js";
 
 import type {
   ApiFromModules,
@@ -34,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   embeddings: typeof embeddings;
   embeddingsHelpers: typeof embeddingsHelpers;
   http: typeof http;
+  "lib/asrPatterns": typeof lib_asrPatterns;
   "lib/bibleParser": typeof lib_bibleParser;
   migration: typeof migration;
   openrouter: typeof openrouter;
@@ -42,6 +46,8 @@ declare const fullApi: ApiFromModules<{
   searchHelpers: typeof searchHelpers;
   sermons: typeof sermons;
   settings: typeof settings;
+  transcriptCleanup: typeof transcriptCleanup;
+  transcriptCleanupHelpers: typeof transcriptCleanupHelpers;
 }>;
 
 /**

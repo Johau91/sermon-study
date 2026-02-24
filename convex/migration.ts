@@ -1,7 +1,7 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const batchInsertSermons = mutation({
+export const batchInsertSermons = internalMutation({
   args: {
     sermons: v.array(
       v.object({
@@ -26,7 +26,7 @@ export const batchInsertSermons = mutation({
   },
 });
 
-export const batchInsertChunks = mutation({
+export const batchInsertChunks = internalMutation({
   args: {
     chunks: v.array(
       v.object({
@@ -45,7 +45,7 @@ export const batchInsertChunks = mutation({
   },
 });
 
-export const batchInsertBibleVerses = mutation({
+export const batchInsertBibleVerses = internalMutation({
   args: {
     verses: v.array(
       v.object({
@@ -65,7 +65,7 @@ export const batchInsertBibleVerses = mutation({
   },
 });
 
-export const batchInsertChatMessages = mutation({
+export const batchInsertChatMessages = internalMutation({
   args: {
     messages: v.array(
       v.object({
@@ -84,7 +84,7 @@ export const batchInsertChatMessages = mutation({
   },
 });
 
-export const batchInsertQuizRecords = mutation({
+export const batchInsertQuizRecords = internalMutation({
   args: {
     records: v.array(
       v.object({
@@ -106,7 +106,7 @@ export const batchInsertQuizRecords = mutation({
   },
 });
 
-export const batchInsertSettings = mutation({
+export const batchInsertSettings = internalMutation({
   args: {
     settings: v.array(
       v.object({
