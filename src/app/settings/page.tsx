@@ -26,7 +26,7 @@ const MODEL_OPTIONS: ModelOption[] = [
     description: "Gemini 2.5 Flash — 속도와 품질의 균형",
   },
   {
-    id: "qwen/qwen3.5-plus",
+    id: "qwen/qwen3.5-plus-02-15",
     name: "최고 품질",
     emoji: "🏆",
     description: "Qwen 3.5 Plus — 깊이 있는 고품질 답변",
