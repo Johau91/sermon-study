@@ -83,11 +83,6 @@ export const getByOriginalId = query({
       .first();
     if (!sermon) return null;
 
-    const transcript = await ctx.db
-      .query("transcripts")
-      .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
-      .first();
-
     const chunks = await ctx.db
       .query("chunks")
       .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
@@ -97,8 +92,6 @@ export const getByOriginalId = query({
 
     return {
       ...sermon,
-      transcriptRaw: transcript?.transcriptRaw ?? sermon.transcriptRaw,
-      transcriptCorrected: transcript?.transcriptCorrected ?? sermon.transcriptCorrected,
       chunks: chunks.map((c) => ({
         _id: c._id,
         chunkIndex: c.chunkIndex,
@@ -114,11 +107,6 @@ export const getById = query({
     const sermon = await ctx.db.get(args.id);
     if (!sermon) return null;
 
-    const transcript = await ctx.db
-      .query("transcripts")
-      .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
-      .first();
-
     const chunks = await ctx.db
       .query("chunks")
       .withIndex("by_sermonId", (q) => q.eq("sermonId", sermon._id))
@@ -128,8 +116,6 @@ export const getById = query({
 
     return {
       ...sermon,
-      transcriptRaw: transcript?.transcriptRaw ?? sermon.transcriptRaw,
-      transcriptCorrected: transcript?.transcriptCorrected ?? sermon.transcriptCorrected,
       chunks: chunks.map((c) => ({
         _id: c._id,
         chunkIndex: c.chunkIndex,
