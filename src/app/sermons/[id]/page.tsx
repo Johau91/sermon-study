@@ -286,28 +286,28 @@ export default function SermonDetailPage() {
       {/* Prev / Next navigation */}
       {adjacent && (adjacent.prev || adjacent.next) && (
         <div className="flex gap-3">
-          {adjacent.prev ? (
+          {adjacent.next ? (
             <Link
-              href={`/sermons/${adjacent.prev.originalId}`}
+              href={`/sermons/${adjacent.next.originalId}`}
               className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04] transition-all hover:shadow-md hover:ring-[#3182F6]/20"
             >
               <ChevronLeft className="size-4 shrink-0 text-gray-400" />
               <div className="min-w-0">
                 <p className="text-[11px] text-gray-400">이전 설교</p>
-                <p className="truncate text-sm font-medium text-gray-700">{adjacent.prev.title}</p>
+                <p className="truncate text-sm font-medium text-gray-700">{adjacent.next.title}</p>
               </div>
             </Link>
           ) : (
             <div className="flex-1" />
           )}
-          {adjacent.next ? (
+          {adjacent.prev ? (
             <Link
-              href={`/sermons/${adjacent.next.originalId}`}
+              href={`/sermons/${adjacent.prev.originalId}`}
               className="flex min-w-0 flex-1 items-center justify-end gap-2 rounded-2xl bg-white p-4 text-right shadow-sm ring-1 ring-black/[0.04] transition-all hover:shadow-md hover:ring-[#3182F6]/20"
             >
               <div className="min-w-0">
                 <p className="text-[11px] text-gray-400">다음 설교</p>
-                <p className="truncate text-sm font-medium text-gray-700">{adjacent.next.title}</p>
+                <p className="truncate text-sm font-medium text-gray-700">{adjacent.prev.title}</p>
               </div>
               <ChevronRight className="size-4 shrink-0 text-gray-400" />
             </Link>
