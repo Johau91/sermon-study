@@ -16,7 +16,6 @@ import {
   Loader2,
   ChevronDown,
 } from "lucide-react";
-import { formatTranscriptParagraphs } from "@/lib/format-transcript";
 
 export default function SermonDetailPage() {
   const params = useParams();
@@ -246,12 +245,8 @@ export default function SermonDetailPage() {
                 )}
               </div>
             ) : (
-              <div className="text-[15px] leading-[1.8] text-gray-700">
-                {formatTranscriptParagraphs(displayTranscript).map((p, i) => (
-                  <p key={i} className={i > 0 ? "mt-5" : ""}>
-                    {p}
-                  </p>
-                ))}
+              <div className="whitespace-pre-line text-[15px] leading-[1.85] text-gray-700">
+                {displayTranscript}
               </div>
             )}
           </div>
