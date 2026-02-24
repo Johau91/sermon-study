@@ -167,7 +167,7 @@ export default function TranscriptSearch({ transcript, fontSize }: Props) {
       {/* Transcript with highlights */}
       <div
         ref={containerRef}
-        className="whitespace-pre-line leading-[1.85] text-foreground"
+        className="whitespace-pre-line leading-[2.05] tracking-[0.012em] text-foreground"
         style={{ fontSize: `${fontSize}px` }}
       >
         {rendered}
